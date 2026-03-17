@@ -1,0 +1,463 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MICROGREENS & MIXES
+// ============================================
+
+model Microgreen {
+  id          String   @id @default(cuid())
+  sku         String   @unique // MIC-001 format
+  name        String
+  variety     String?
+  description String?
+  
+  // Growing characteristics
+  growTime       Int     // days from seed to harvest
+  yieldPerTray   Float   // grams per 1020 tray
+  seedingDensity Float   // grams of seed per tray
+  
+  // Costing defaults
+  defaultSeedCostPerGram Float?
+  defaultSoilCostPerTray Float?
+  defaultTrayCost        Float?
+  
+  // Metadata
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  mixComponents MixComponent[]
+  costings      MicrogreenCosting[]
+  supplierPrices SupplierPrice[]
+  
+  @@index([sku])
+  @@index([isActive])
+  @@map("microgreens")
+}
+
+model Mix {
+  id          String   @id @default(cuid())
+  sku         String   @unique // MIX-001 format
+  name        String
+  description String?
+  
+  // Composition (computed from components)
+  totalWeight  Float // grams total per batch
+  servingSize  Float // grams per serving
+  servingsPerBatch Int
+  
+  // Costing
+  totalCostPerBatch Float?
+  costPerServing    Float?
+  
+  // Metadata
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  isTemplate  Boolean @default(false) // Template mixes can be copied
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  components MixComponent[]
+  costings   MixCosting[]
+  
+  @@index([sku])
+  @@index([isActive])
+  @@map("mixes")
+}
+
+model MixComponent {
+  id String @id @default(cuid())
+  
+  // Relations
+  mixId        String
+  mix          Mix        @relation(fields: [mixId], references: [id], onDelete: Cascade)
+  microgreenId String
+  microgreen   Microgreen @relation(fields: [microgreenId], references: [id], onDelete: Restrict)
+  
+  // Composition
+  percentage Float // Percentage of mix (0-100)
+  weightGrams Float // Actual weight in grams
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([mixId, microgreenId])
+  @@index([mixId])
+  @@index([microgreenId])
+  @@map("mix_components")
+}
+
+// ============================================
+// SUPPLIER MANAGEMENT
+// ============================================
+
+model Supplier {
+  id          String   @id @default(cuid())
+  code        String   @unique // SUP-001 format
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  website     String?
+  
+  // Terms
+  paymentTerms String? // e.g., "Net 30", "COD"
+  leadTimeDays Int?    // Average delivery time
+  minOrderAmount Float?
+  isPreferred  Boolean @default(false)
+  
+  // Status
+  isActive    Boolean @default(true)
+  rating      Int?    // 1-5 rating
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  prices SupplierPrice[]
+  
+  @@index([code])
+  @@index([isActive])
+  @@index([isPreferred])
+  @@map("suppliers")
+}
+
+model SupplierPrice {
+  id String @id @default(cuid())
+  
+  // Relations
+  supplierId   String
+  supplier     Supplier   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  microgreenId String
+  microgreen   Microgreen @relation(fields: [microgreenId], references: [id], onDelete: Cascade)
+  
+  // Pricing
+  unitType   PriceUnitType // per_gram, per_kg, per_lb
+  unitPrice    Float
+  currency     String  @default("USD")
+  moq          Float?  // Minimum order quantity
+  
+  // Tracking
+  effectiveDate DateTime @default(now())
+  expiryDate    DateTime?
+  isCurrent     Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([supplierId])
+  @@index([microgreenId])
+  @@index([isCurrent])
+  @@index([effectiveDate])
+  @@map("supplier_prices")
+}
+
+enum PriceUnitType {
+  PER_GRAM
+  PER_KG
+  PER_LB
+  PER_OZ
+  PER_UNIT
+}
+
+// ============================================
+// COSTING
+// ============================================
+
+model MicrogreenCosting {
+  id String @id @default(cuid())
+  
+  // Relations
+  microgreenId String
+  microgreen   Microgreen @relation(fields: [microgreenId], references: [id], onDelete: Cascade)
+  
+  // Cost components (per tray)
+  seedCost   Float // Based on cheapest supplier price
+  soilCost   Float
+  trayCost   Float // Amortized tray cost
+  laborCost  Float // Growing labor
+  waterCost  Float
+  electricityCost Float // Grow lights, etc.
+  packagingCost   Float
+  overheadCost    Float // Facility, admin, etc.
+  
+  // Totals
+  totalCostPerTray Float
+  costPerGram      Float
+  costPerServing   Float? // If applicable
+  
+  // Reference
+  isDefault Boolean @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([microgreenId])
+  @@index([isDefault])
+  @@map("microgreen_costings")
+}
+
+model MixCosting {
+  id String @id @default(cuid())
+  
+  // Relations
+  mixId String
+  mix   Mix    @relation(fields: [mixId], references: [id], onDelete: Cascade)
+  
+  // Cost breakdown
+  ingredientsCost Float // Sum of microgreen costs
+  packagingCost   Float
+  laborCost       Float // Blending/packaging labor
+  overheadCost    Float
+  
+  // Totals
+  totalCostPerBatch Float
+  costPerServing    Float
+  marginPerServing  Float? // If retail price set
+  
+  // Reference
+  isDefault Boolean @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([mixId])
+  @@index([isDefault])
+  @@map("mix_costings")
+}
+
+// Cost factors for calculations
+model CostFactor {
+  id    String @id @default(cuid())
+  key   String @unique
+  name  String
+  value Float
+  unit  String? // e.g., "per_tray", "per_hour"
+  description String?
+  category    String? // seeds, soil, utilities, labor, overhead
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([key])
+  @@index([category])
+  @@map("cost_factors")
+}
+
+// ============================================
+// PRICING & CUSTOMER TIERS
+// ============================================
+
+model CustomerTier {
+  id          String   @id @default(cuid())
+  code        String   @unique // TIER-RETAIL, TIER-WHOLESALE, etc.
+  name        String
+  description String?
+  
+  // Pricing rules
+  markupType     MarkupType @default(PERCENTAGE)
+  markupValue    Float      // e.g., 30 for 30%, or 5 for $5 fixed
+  minimumMargin  Float?     // Minimum dollar margin
+  volumeDiscountThreshold Int? // Orders above this quantity get discount
+  volumeDiscountPercent   Float?
+  
+  // Access
+  isActive Boolean @default(true)
+  priority Int     @default(0) // Higher = more preferred
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  prices CustomerTierPrice[]
+  subscriptions SubscriptionPlan[]
+  
+  @@index([code])
+  @@index([isActive])
+  @@map("customer_tiers")
+}
+
+model CustomerTierPrice {
+  id String @id @default(cuid())
+  
+  // Relations
+  tierId String
+  tier   CustomerTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  
+  // Can price microgreens or mixes
+  microgreenId String?
+  microgreen   Microgreen? @relation(fields: [microgreenId], references: [id], onDelete: Cascade)
+  mixId        String?
+  mix          Mix?        @relation(fields: [mixId], references: [id], onDelete: Cascade)
+  
+  // Pricing
+  baseCost        Float   // From costing
+  markupPercent   Float
+  finalPrice      Float
+  minOrderQuantity Int    @default(1)
+  
+  // Override settings
+  isOverridden Boolean @default(false)
+  customPrice  Float?
+  
+  // Validity
+  effectiveDate DateTime @default(now())
+  isActive      Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([tierId, microgreenId, mixId])
+  @@index([tierId])
+  @@index([microgreenId])
+  @@index([mixId])
+  @@index([isActive])
+  @@map("customer_tier_prices")
+}
+
+enum MarkupType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FIXED_PRICE
+}
+
+// ============================================
+// SUBSCRIPTIONS
+// ============================================
+
+model SubscriptionPlan {
+  id          String   @id @default(cuid())
+  sku         String   @unique // SUB-001 format
+  name        String
+  description String?
+  
+  // Relations
+  tierId String
+  tier   CustomerTier @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  
+  // Duration options (in weeks)
+  minDurationWeeks Int
+  maxDurationWeeks Int?
+  
+  // Content
+  weeklyServings Int
+  servingSizeGrams Float
+  includedMixIds String[] // Mix SKUs included
+  
+  // Pricing
+  weeklyPrice      Float
+  setupFee         Float?
+  deliveryFee      Float?
+  
+  // Duration discounts
+  discount4Weeks  Float @default(0)  // Percentage
+  discount8Weeks  Float @default(0)
+  discount12Weeks Float @default(0)
+  discount26Weeks Float @default(0)
+  discount52Weeks Float @default(0)
+  
+  // Calculated prices
+  total4Weeks  Float?
+  total8Weeks  Float?
+  total12Weeks Float?
+  total26Weeks Float?
+  total52Weeks Float?
+  
+  // Settings
+  isActive      Boolean @default(true)
+  allowPause    Boolean @default(true)
+  allowCustomization Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([sku])
+  @@index([tierId])
+  @@index([isActive])
+  @@map("subscription_plans")
+}
+
+// ============================================
+// ADMIN & CONFIGURATION
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(OPERATOR)
+  
+  // Profile
+  phone     String?
+  avatarUrl String?
+  
+  // Security
+  passwordHash String
+  lastLoginAt  DateTime?
+  
+  // Status
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  OPERATOR
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // CREATE, UPDATE, DELETE, EXPORT, IMPORT, etc.
+  entity    String   // Table name
+  entityId  String?  // Record ID
+  oldValues Json?    // Previous state
+  newValues Json?    // New state
+  metadata  Json?    // Additional context
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model ExportImportLog {
+  id          String   @id @default(cuid())
+  type        String   // EXPORT or IMPORT
+  entity      String   // Table name
+  format      String   // CSV, JSON, XLSX
+  fileName    String?
+  fileUrl     String?
+  recordCount Int?
+  status      String   // PENDING, PROCESSING, COMPLETED, FAILED
+  errorMessage String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  @@index([type])
+  @@index([entity])
+  @@index([status])
+  @@map("export_import_logs")
+}
