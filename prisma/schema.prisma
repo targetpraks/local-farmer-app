@@ -17,6 +17,7 @@ model Microgreen {
   name        String
   variety     String?
   description String?
+  seedCode    String?  // TLF-ST-XXX format from supplier
 
   // Growing characteristics
   growTime       Int // days from seed to harvest

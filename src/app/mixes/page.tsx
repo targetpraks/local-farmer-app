@@ -60,35 +60,64 @@ export default function MixesPage() {
   }
 
   const columns = [
-    { key: 'name', header: 'Name', sortable: true },
+    { 
+      key: 'name', 
+      header: 'Name', 
+      sortable: true,
+      render: (row: MixWithComponents) => (
+        <div>
+          <div className="font-medium text-gray-900">{row.name}</div>
+          {row.description && (
+            <div className="text-sm text-gray-500 mt-0.5">{row.description}</div>
+          )}
+        </div>
+      )
+    },
     { 
       key: 'components', 
       header: 'Components', 
       sortable: false,
       render: (row: MixWithComponents) => (
         <div className="flex flex-wrap gap-1">
-          {row.components?.slice(0, 3).map((comp) => (
-            <Badge key={comp.id} variant="default">
+          {row.components?.map((comp) => (
+            <Badge key={comp.id} variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">
               {comp.microgreen?.name} ({comp.percentage}%)
             </Badge>
           ))}
-          {row.components?.length > 3 && (
-            <Badge variant="default">+{row.components.length - 3} more</Badge>
-          )}
         </div>
       )
     },
     { 
-      key: 'totalWeight', 
-      header: 'Total Weight', 
+      key: 'costPerGram', 
+      header: 'Cost / Gram', 
       sortable: true,
-      render: (row: MixWithComponents) => `${row.totalWeight}g`
-    },
-    { 
-      key: 'servingSize', 
-      header: 'Serving', 
-      sortable: true,
-      render: (row: MixWithComponents) => `${row.servingSize}g`
+      render: (row: MixWithComponents) => {
+        // Calculate blended cost based on component costs and yields
+        let totalCost = 0
+        let totalYield = 0
+        
+        row.components?.forEach((comp) => {
+          const microgreen = comp.microgreen
+          if (microgreen) {
+            const seedCost = microgreen.defaultSeedCostPerGram || 0
+            const yieldPerTray = microgreen.yieldPerTray || 1
+            const percentage = comp.percentage / 100
+            
+            // Cost for this component = seed cost * percentage
+            totalCost += seedCost * percentage
+            // Weight contribution = yield * percentage
+            totalYield += yieldPerTray * percentage
+          }
+        })
+        
+        const costPerGram = totalYield > 0 ? totalCost / totalYield : 0
+        
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-semibold bg-amber-100 text-amber-900 border border-amber-200">
+            R{costPerGram.toFixed(2)}/g
+          </span>
+        )
+      }
     },
     {
       key: 'actions',

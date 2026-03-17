@@ -19,12 +19,12 @@ import { useState } from 'react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Subscriptions', href: '/subscriptions', icon: Package },
+  { name: 'Pricing', href: '/pricing', icon: CreditCard },
   { name: 'Microgreens', href: '/microgreens', icon: Leaf },
   { name: 'Mixes', href: '/mixes', icon: FlaskConical },
-  { name: 'Suppliers', href: '/suppliers', icon: Users },
   { name: 'Costing', href: '/costing', icon: TrendingUp },
-  { name: 'Pricing', href: '/pricing', icon: CreditCard },
-  { name: 'Subscriptions', href: '/subscriptions', icon: Package },
+  { name: 'Suppliers', href: '/suppliers', icon: Users },
   { name: 'Admin', href: '/admin', icon: Settings },
 ]
 

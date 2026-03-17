@@ -59,6 +59,13 @@ export default function MicrogreensPage() {
     }
   }
 
+  const getYieldRateColor = (rate: number) => {
+    if (rate < 400) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200', dot: 'bg-red-600', label: 'Terrible' }
+    if (rate < 600) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200', dot: 'bg-yellow-600', label: 'OK' }
+    if (rate < 800) return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200', dot: 'bg-blue-600', label: 'Good' }
+    return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200', dot: 'bg-green-600', label: 'Great' }
+  }
+
   const columns = [
     { key: 'name', header: 'Name', sortable: true },
     { key: 'variety', header: 'Variety', sortable: true },
@@ -69,16 +76,41 @@ export default function MicrogreensPage() {
       render: (row: Microgreen) => `${row.growTime} days`
     },
     { 
-      key: 'yieldPerTray', 
-      header: 'Yield', 
-      sortable: true,
-      render: (row: Microgreen) => `${row.yieldPerTray}g`
-    },
-    { 
       key: 'seedingDensity', 
       header: 'Seeding', 
       sortable: true,
-      render: (row: Microgreen) => `${row.seedingDensity}g/tray`
+      render: (row: Microgreen) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="w-2 h-2 bg-amber-600 rounded-full mr-1.5"></span>
+          {row.seedingDensity}g/tray
+        </span>
+      )
+    },
+    { 
+      key: 'yieldPerTray', 
+      header: 'Yield', 
+      sortable: true,
+      render: (row: Microgreen) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+          <span className="w-2 h-2 bg-green-600 rounded-full mr-1.5"></span>
+          {row.yieldPerTray}g
+        </span>
+      )
+    },
+    { 
+      key: 'yieldRate', 
+      header: 'Yield Rate', 
+      sortable: true,
+      render: (row: Microgreen) => {
+        const rate = Math.round((row.yieldPerTray / row.seedingDensity) * 100)
+        const colors = getYieldRateColor(rate)
+        return (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${colors.bg} ${colors.text} border ${colors.border}`}>
+            <span className={`w-2 h-2 ${colors.dot} rounded-full mr-1.5`}></span>
+            {rate}% ({colors.label})
+          </span>
+        )
+      }
     },
     {
       key: 'actions',
