@@ -63,8 +63,9 @@ const DEFAULT_MARGINS = {
 export default function PricingPage() {
   const [microgreens, setMicrogreens] = useState<Microgreen[]>([])
   const [customerTiers, setCustomerTiers] = useState<CustomerTier[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isClient, setIsClient] = useState(false)
   
   // Toggles
   const [selectedTier, setSelectedTier] = useState<'retail' | 'wholesale' | 'restaurant'>('retail')
@@ -77,32 +78,32 @@ export default function PricingPage() {
   const [margins, setMargins] = useState(DEFAULT_MARGINS)
 
   useEffect(() => {
+    setIsClient(true)
+    
     // Load saved config first (client-side only)
-    if (typeof window !== 'undefined') {
-      const savedConfig = localStorage.getItem('costConfig')
-      if (savedConfig) {
-        try {
-          const parsed = JSON.parse(savedConfig)
-          setCostConfig({
-            trayCost: parsed.trayCost || 50,
-            trayUses: parsed.trayUses || 1000,
-            fabricPaperCost: parsed.fabricPaperCost || 2,
-            soilCostPerKg: parsed.soilCostPerKg || 15,
-            soilPerTrayGrams: parsed.soilPerTrayGrams || 500,
-            waterCostPerTray: parsed.waterCostPerTray || 1,
-            electricityCostPerTray: parsed.electricityCostPerTray || 2,
-            laborCostPerTray: parsed.laborCostPerTray || 5,
+    const savedConfig = localStorage.getItem('costConfig')
+    if (savedConfig) {
+      try {
+        const parsed = JSON.parse(savedConfig)
+        setCostConfig({
+          trayCost: parsed.trayCost || 50,
+          trayUses: parsed.trayUses || 1000,
+          fabricPaperCost: parsed.fabricPaperCost || 2,
+          soilCostPerKg: parsed.soilCostPerKg || 15,
+          soilPerTrayGrams: parsed.soilPerTrayGrams || 500,
+          waterCostPerTray: parsed.waterCostPerTray || 1,
+          electricityCostPerTray: parsed.electricityCostPerTray || 2,
+          laborCostPerTray: parsed.laborCostPerTray || 5,
+        })
+        if (parsed.marginPercent) {
+          setMargins({
+            retail: parsed.marginPercent,
+            wholesale: Math.round(parsed.marginPercent * 0.6),
+            restaurant: Math.round(parsed.marginPercent * 0.8),
           })
-          if (parsed.marginPercent) {
-            setMargins({
-              retail: parsed.marginPercent,
-              wholesale: Math.round(parsed.marginPercent * 0.6),
-              restaurant: Math.round(parsed.marginPercent * 0.8),
-            })
-          }
-        } catch (e) {
-          console.error('Failed to parse saved config:', e)
         }
+      } catch (e) {
+        console.error('Failed to parse saved config:', e)
       }
     }
     
@@ -212,7 +213,7 @@ export default function PricingPage() {
     }
   }
 
-  if (isLoading) {
+  if (!isClient || isLoading) {
     return <LoadingSpinner fullScreen />
   }
 
