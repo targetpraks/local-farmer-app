@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit, Trash2, Package, Calendar, Users } from 'lucide-react'
+import { Plus, Edit, Trash2, Package, Calendar, Users, Gift, Clock, Zap } from 'lucide-react'
 import { DataTable } from '@/components/DataTable'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -12,6 +12,13 @@ import { ErrorMessage } from '@/components/ErrorMessage'
 import { EmptyState } from '@/components/EmptyState'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { SubscriptionPlanWithTier } from '@/types'
+
+// Subscription duration discounts
+const DURATION_DISCOUNTS = [
+  { months: 3, weeks: 12, discount: 4, label: '3 Months', icon: Clock, color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { months: 6, weeks: 26, discount: 6, label: '6 Months', icon: Calendar, color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { months: 12, weeks: 52, discount: 10, label: '12 Months', icon: Zap, color: 'bg-amber-100 text-amber-700 border-amber-200' },
+]
 
 export default function SubscriptionsPage() {
   const router = useRouter()
@@ -171,10 +178,39 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center gap-3">
+          <Gift className="h-8 w-8 text-yellow-300" />
+          <div>
+            <h1 className="text-3xl font-bold">Subscription Plans</h1>
+            <p className="text-purple-100 mt-1">Create flexible plans with duration-based discounts. Keep customers coming back!</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Duration Discounts */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {DURATION_DISCOUNTS.map((tier) => (
+          <div key={tier.months} className={`p-4 rounded-xl border-2 ${tier.color} flex items-center gap-4`}>
+            <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+              <tier.icon className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{tier.discount}%</div>
+              <div className="text-sm font-medium">{tier.label}</div>
+              <div className="text-xs opacity-75">{tier.weeks} weeks</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {error && <ErrorMessage message={error} onRetry={fetchSubscriptions} />}
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Subscription Plans</h1>
-          <p className="text-gray-500">Manage subscription plans and pricing</p>
+          <h2 className="text-xl font-bold text-gray-900">Active Plans</h2>
+          <p className="text-gray-500">{subscriptions.length} subscription plans available</p>
         </div>
         <Link href="/subscriptions/new">
           <Button>
@@ -183,8 +219,6 @@ export default function SubscriptionsPage() {
           </Button>
         </Link>
       </div>
-
-      {error && <ErrorMessage message={error} onRetry={fetchSubscriptions} />}
 
       {subscriptions.length === 0 && !isLoading ? (
         <EmptyState

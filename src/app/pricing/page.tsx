@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Leaf, Package, Store, Building2, UtensilsCrossed, ShoppingCart, TrendingUp, Calculator } from 'lucide-react'
+import { Leaf, Package, Store, Building2, UtensilsCrossed, ShoppingCart, TrendingUp, Calculator, Sparkles } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -32,16 +32,6 @@ interface CostConfig {
   laborCostPerTray: number
 }
 
-interface PricingCalculation {
-  microgreen: Microgreen
-  costPerTray: number
-  costPerGram: number
-  // By customer tier
-  retail: { listPrice: number; finalPrice: number }
-  wholesale: { listPrice: number; finalPrice: number }
-  restaurant: { listPrice: number; finalPrice: number }
-}
-
 const defaultCostConfig: CostConfig = {
   trayCost: 50,
   trayUses: TRAY_USES,
@@ -63,9 +53,8 @@ const DEFAULT_MARGINS = {
 export default function PricingPage() {
   const [microgreens, setMicrogreens] = useState<Microgreen[]>([])
   const [customerTiers, setCustomerTiers] = useState<CustomerTier[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isClient, setIsClient] = useState(false)
   
   // Toggles
   const [selectedTier, setSelectedTier] = useState<'retail' | 'wholesale' | 'restaurant'>('retail')
@@ -78,36 +67,6 @@ export default function PricingPage() {
   const [margins, setMargins] = useState(DEFAULT_MARGINS)
 
   useEffect(() => {
-    setIsClient(true)
-    
-    // Load saved config first (client-side only)
-    const savedConfig = localStorage.getItem('costConfig')
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig)
-        setCostConfig({
-          trayCost: parsed.trayCost || 50,
-          trayUses: parsed.trayUses || 1000,
-          fabricPaperCost: parsed.fabricPaperCost || 2,
-          soilCostPerKg: parsed.soilCostPerKg || 15,
-          soilPerTrayGrams: parsed.soilPerTrayGrams || 500,
-          waterCostPerTray: parsed.waterCostPerTray || 1,
-          electricityCostPerTray: parsed.electricityCostPerTray || 2,
-          laborCostPerTray: parsed.laborCostPerTray || 5,
-        })
-        if (parsed.marginPercent) {
-          setMargins({
-            retail: parsed.marginPercent,
-            wholesale: Math.round(parsed.marginPercent * 0.6),
-            restaurant: Math.round(parsed.marginPercent * 0.8),
-          })
-        }
-      } catch (e) {
-        console.error('Failed to parse saved config:', e)
-      }
-    }
-    
-    // Then fetch data
     fetchData()
   }, [])
 
@@ -159,11 +118,9 @@ export default function PricingPage() {
   }
 
   const getPackagingCost = (): number => {
-    // Packaging costs based on type
     if (packagingType === 'retail') {
       return 3 // Clamshell
     }
-    // Wholesale polypacks
     if (selectedPackSize === 100) return 1.5
     if (selectedPackSize === 200) return 2
     if (selectedPackSize === 500) return 3
@@ -179,14 +136,10 @@ export default function PricingPage() {
     const costPerGram = microgreen.yieldPerTray > 0 ? costPerTray / microgreen.yieldPerTray : 0
     const pricePerGram = calculatePricePerGram(costPerGram, selectedTier)
     
-    // Base price for the grams
     const gramsPrice = pricePerGram * selectedPackSize
-    
-    // Add packaging and label costs
     const packagingCost = getPackagingCost()
     const labelCost = getLabelCost()
     
-    // Apply margin to packaging too
     const margin = margins[selectedTier]
     const marginMultiplier = 1 + (margin / 100)
     const packagingWithMargin = packagingCost * marginMultiplier
@@ -206,41 +159,59 @@ export default function PricingPage() {
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'retail': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'wholesale': return 'bg-green-100 text-green-800 border-green-200'
-      case 'restaurant': return 'bg-purple-100 text-purple-800 border-purple-200'
+      case 'retail': return 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-400'
+      case 'wholesale': return 'bg-gradient-to-r from-green-500 to-green-600 text-white border-green-400'
+      case 'restaurant': return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white border-purple-400'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
 
-  if (!isClient || isLoading) {
+  const getTierDescription = (tier: string) => {
+    switch (tier) {
+      case 'retail': return 'Direct to consumer pricing'
+      case 'wholesale': return 'Bulk order pricing for resellers'
+      case 'restaurant': return 'Chef-friendly pricing for culinary partners'
+      default: return ''
+    }
+  }
+
+  if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Pricing</h1>
-        <p className="text-gray-500">Calculate prices for all microgreens by customer tier and packaging</p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center gap-3">
+          <Sparkles className="h-8 w-8 text-yellow-300" />
+          <div>
+            <h1 className="text-3xl font-bold">Pricing Calculator</h1>
+            <p className="text-green-100 mt-1">Set your prices with confidence. Real-time calculations for every microgreen variety.</p>
+          </div>
+        </div>
       </div>
 
       {error && <ErrorMessage message={error} onRetry={fetchData} />}
 
       {/* Controls */}
-      <Card title="Pricing Controls" subtitle="Select customer tier, packaging type, and pack size">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <Card title="🎯 Pricing Controls" subtitle="Customize your pricing strategy">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Customer Tier Toggle */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Customer Tier</label>
-            <div className="flex rounded-lg bg-gray-100 p-1">
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+            <label className="block text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Customer Tier
+            </label>
+            <div className="flex rounded-lg bg-white shadow-sm p-1 border border-blue-200">
               {(['retail', 'wholesale', 'restaurant'] as const).map((tier) => (
                 <button
                   key={tier}
                   onClick={() => setSelectedTier(tier)}
                   className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                     selectedTier === tier
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                   }`}
                 >
                   {getTierIcon(tier)}
@@ -248,21 +219,27 @@ export default function PricingPage() {
                 </button>
               ))}
             </div>
+            <div className="mt-2 text-xs text-blue-600 font-medium">
+              {getTierDescription(selectedTier)}
+            </div>
             <div className="mt-1 text-xs text-gray-500">
-              Margin: {margins[selectedTier]}%
+              Margin: <span className="font-bold text-blue-700">{margins[selectedTier]}%</span>
             </div>
           </div>
 
           {/* Packaging Type Toggle */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Packaging Type</label>
-            <div className="flex rounded-lg bg-gray-100 p-1">
+          <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+            <label className="block text-sm font-semibold text-amber-900 mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Packaging Type
+            </label>
+            <div className="flex rounded-lg bg-white shadow-sm p-1 border border-amber-200">
               <button
                 onClick={() => setPackagingType('retail')}
                 className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                   packagingType === 'retail'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-amber-500 text-white shadow-md'
+                    : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
                 }`}
               >
                 <ShoppingCart className="h-4 w-4 mr-1.5" />
@@ -272,80 +249,88 @@ export default function PricingPage() {
                 onClick={() => setPackagingType('wholesale')}
                 className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                   packagingType === 'wholesale'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-amber-500 text-white shadow-md'
+                    : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
                 }`}
               >
                 <Package className="h-4 w-4 mr-1.5" />
                 Wholesale
               </button>
             </div>
-            <div className="mt-1 text-xs text-gray-500">
-              {packagingType === 'retail' ? 'Clamshell packaging' : 'Polypack packaging'}
+            <div className="mt-2 text-xs text-amber-700">
+              {packagingType === 'retail' ? '📦 Clamshell packaging' : '📦 Polypack packaging'}
             </div>
           </div>
 
           {/* Pack Size */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Pack Size</label>
-            <div className="flex rounded-lg bg-gray-100 p-1">
+          <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+            <label className="block text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Pack Size
+            </label>
+            <div className="flex rounded-lg bg-white shadow-sm p-1 border border-purple-200">
               {PACK_SIZES.map((size) => (
                 <button
                   key={size.grams}
                   onClick={() => setSelectedPackSize(size.grams)}
                   className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                     selectedPackSize === size.grams
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-purple-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                   }`}
                 >
                   {size.grams}g
                 </button>
               ))}
             </div>
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-purple-700">
               {PACK_SIZES.find(s => s.grams === selectedPackSize)?.packaging}
             </div>
           </div>
 
           {/* Discount */}
-          <div>
+          <div className="bg-rose-50 rounded-xl p-4 border border-rose-100">
             <Input
-              label="Discount (%)"
+              label="🎁 Discount (%)"
               type="number"
               value={discountPercent}
               onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-              hint="Applied to all prices"
+              hint="Special offer discount"
             />
+            {discountPercent > 0 && (
+              <div className="mt-2 text-xs text-rose-600 font-medium">
+                ✨ {discountPercent}% off applied!
+              </div>
+            )}
           </div>
         </div>
       </Card>
 
       {/* Pricing Table */}
       <Card 
-        title={`${selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)} Pricing`}
-        subtitle={`${selectedPackSize}g ${packagingType} packs with ${margins[selectedTier]}% margin${discountPercent > 0 ? ` and ${discountPercent}% discount` : ''}`}
+        title={`💰 ${selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)} Pricing`}
+        subtitle={`${selectedPackSize}g ${packagingType} packs • ${margins[selectedTier]}% margin${discountPercent > 0 ? ` • ${discountPercent}% discount` : ''}`}
       >
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Microgreen
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Seed Code
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Cost/Tray
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Cost/Gram
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Price/Gram
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider bg-green-50">
+                <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wider bg-gradient-to-r from-green-500 to-emerald-500">
                   {selectedPackSize}g Pack
                 </th>
               </tr>
@@ -358,12 +343,14 @@ export default function PricingPage() {
                 const packPrice = calculatePackPrice(microgreen)
 
                 return (
-                  <tr key={microgreen.id} className="hover:bg-gray-50">
+                  <tr key={microgreen.id} className="hover:bg-green-50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center">
-                        <Leaf className="h-4 w-4 text-green-500 mr-2" />
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center mr-3">
+                          <Leaf className="h-4 w-4 text-white" />
+                        </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-bold text-gray-900">
                             {microgreen.name}
                           </div>
                           {microgreen.variety && (
@@ -372,19 +359,19 @@ export default function PricingPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">
                       {microgreen.seedCode}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-700">
                       R{costPerTray.toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-700">
                       R{costPerGram.toFixed(4)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-blue-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-bold text-blue-600">
                       R{pricePerGram.toFixed(4)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right bg-green-50">
+                    <td className="px-4 py-3 whitespace-nowrap text-right bg-gradient-to-r from-green-50 to-emerald-50">
                       <span className="text-lg font-bold text-green-700">
                         R{packPrice.toFixed(2)}
                       </span>
@@ -400,22 +387,25 @@ export default function PricingPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard 
-          title="Total Varieties" 
+          title="🌱 Total Varieties" 
           value={microgreens.length.toString()} 
           icon={<Leaf className="h-5 w-5 text-green-500" />}
+          color="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200"
         />
         <StatCard 
-          title="Avg Cost/Tray" 
+          title="💵 Avg Cost/Tray" 
           value={`R${(microgreens.reduce((sum, m) => sum + calculateCostPerTray(m), 0) / (microgreens.length || 1)).toFixed(2)}`}
           icon={<Calculator className="h-5 w-5 text-blue-500" />}
+          color="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
         />
         <StatCard 
-          title={`Avg ${selectedPackSize}g Price`}
+          title={`🏷️ Avg ${selectedPackSize}g Price`}
           value={`R${(microgreens.reduce((sum, m) => sum + calculatePackPrice(m), 0) / (microgreens.length || 1)).toFixed(2)}`}
           icon={<TrendingUp className="h-5 w-5 text-purple-500" />}
+          color="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
         />
         <StatCard 
-          title="Current Tier" 
+          title="🎯 Current Tier" 
           value={selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}
           icon={getTierIcon(selectedTier)}
           color={getTierColor(selectedTier)}
@@ -427,13 +417,15 @@ export default function PricingPage() {
 
 function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color?: string }) {
   return (
-    <div className={`p-4 rounded-lg border ${color || 'bg-white border-gray-200'}`}>
+    <div className={`p-4 rounded-xl border shadow-sm ${color || 'bg-white border-gray-200'}`}>
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm text-gray-600">{title}</div>
-          <div className="text-xl font-bold text-gray-900 mt-1">{value}</div>
+          <div className="text-sm font-medium text-gray-600">{title}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{value}</div>
         </div>
-        {icon}
+        <div className="p-2 bg-white rounded-lg shadow-sm">
+          {icon}
+        </div>
       </div>
     </div>
   )
