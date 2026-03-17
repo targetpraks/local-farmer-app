@@ -9,7 +9,6 @@ import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
 import { SupplierFormData } from '@/types'
-import { Checkbox } from '@headlessui/react'
 import { cn } from '@/utils/cn'
 
 const schema = z.object({
@@ -152,26 +151,15 @@ export function SupplierForm({
           />
           
           <div className="flex items-center md:col-span-2">
-            <Checkbox
+            <input
+              type="checkbox"
               checked={isPreferred || false}
-              onChange={(checked) => setValue('isPreferred', checked)}
+              onChange={(e) => setValue('isPreferred', e.target.checked)}
               className={cn(
-                'group size-6 rounded border bg-white',
-                isPreferred ? 'bg-green-600 border-green-600' : 'border-gray-300'
+                'h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500',
+                isPreferred ? 'bg-green-600 border-green-600' : 'bg-white border-gray-300'
               )}
-            >
-              <svg
-                className={cn('size-4 text-white stroke-3', isPreferred ? 'opacity-100' : 'opacity-0')}
-                viewBox="0 0 14 14"
-                fill="none"
-              >
-                <path
-                  d="M3 8L6 11L11 3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Checkbox>
+            />
             <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
           </div>
         </div>

@@ -68,8 +68,8 @@ export function PricingTierForm({
         return 'Markup Percentage (%)'
       case 'FIXED_AMOUNT':
         return 'Fixed Amount Markup'
-      case 'MARGIN_TARGET':
-        return 'Target Margin (%)'
+      case 'FIXED_PRICE':
+        return 'Fixed Price ($)'
       default:
         return 'Markup Value'
     }

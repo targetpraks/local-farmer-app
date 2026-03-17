@@ -152,6 +152,7 @@ export default function MixesPage() {
           action={{
             label: 'Create Mix',
             href: '/mixes/new',
+            onClick: () => {}
           }}
         />
       ) : (

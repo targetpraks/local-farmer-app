@@ -142,6 +142,7 @@ export default function MicrogreensPage() {
           action={{
             label: 'Add Microgreen',
             href: '/microgreens/new',
+            onClick: () => {}
           }}
         />
       ) : (

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     const hasVolumeDiscount = tier.volumeDiscountThreshold && tier.volumeDiscountPercent
       && validatedData.quantity >= tier.volumeDiscountThreshold
 
-    const discountMultiplier = hasVolumeDiscount 
+    const discountMultiplier = hasVolumeDiscount && tier.volumeDiscountPercent
       ? (1 - tier.volumeDiscountPercent / 100) 
       : 1
 

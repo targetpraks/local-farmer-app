@@ -28,7 +28,7 @@ export async function GET(
             mix: true
           }
         },
-        subscriptionPlans: true
+        subscriptions: true
       }
     })
 

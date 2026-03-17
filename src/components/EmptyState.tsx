@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 
 export interface EmptyStateProps {
@@ -9,7 +10,7 @@ export interface EmptyStateProps {
   icon?: ReactNode
   action?: {
     label: string
-    onClick: () => void
+    onClick?: () => void
     href?: string
   }
 }
@@ -23,7 +24,9 @@ export function EmptyState({ title, description, icon, action }: EmptyStateProps
       {action && (
         <div className="mt-6">
           {action.href ? (
-            <Button as="a" href={action.href}>{action.label}</Button>
+            <Link href={action.href}>
+              <Button>{action.label}</Button>
+            </Link>
           ) : (
             <Button onClick={action.onClick}>{action.label}</Button>
           )}

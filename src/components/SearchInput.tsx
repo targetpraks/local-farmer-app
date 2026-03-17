@@ -64,10 +64,10 @@ export function SearchInput({
   )
 }
 
-function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) {
-  let timeoutId: NodeJS.Timeout
-  return (...args: Parameters<T>) => {
+function debounce<T extends (value: string) => void>(fn: T, delay: number) {
+  let timeoutId: ReturnType<typeof setTimeout>
+  return (value: string) => {
     clearTimeout(timeoutId)
-    timeoutId = setTimeout(() => fn(...args), delay)
+    timeoutId = setTimeout(() => fn(value), delay)
   }
 }

@@ -105,7 +105,7 @@ export default function PricingPage() {
       sortable: true,
       render: (row: CustomerTier) => (
         <span>
-          {row.markupType === 'PERCENTAGE' || row.markupType === 'MARGIN_TARGET'
+          {row.markupType === 'PERCENTAGE' || row.markupType === 'FIXED_PRICE'
             ? `${row.markupValue}%`
             : `$${row.markupValue.toFixed(2)}`
           }
@@ -195,6 +195,7 @@ export default function PricingPage() {
           action={{
             label: 'Create Pricing Tier',
             href: '/pricing/new',
+            onClick: () => {}
           }}
         />
       ) : (

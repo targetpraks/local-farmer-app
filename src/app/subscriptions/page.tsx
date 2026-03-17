@@ -194,6 +194,7 @@ export default function SubscriptionsPage() {
           action={{
             label: 'Create Subscription',
             href: '/subscriptions/new',
+            onClick: () => {}
           }}
         />
       ) : (
