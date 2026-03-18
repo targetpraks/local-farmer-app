@@ -230,7 +230,7 @@ export default function SubscriptionsPage() {
                 const subscriptionPrice = calculateMixPrice(mix)
                 
                 let regularPrice = 0
-                mix.components?.forEach((comp) => {
+                mix.components?.forEach((comp: any) => {
                   const microgreen = comp.microgreen
                   if (microgreen && microgreen.listPricePerGram) {
                     const weight = (comp.percentage / 100) * SUBSCRIPTION_PACK_SIZE
