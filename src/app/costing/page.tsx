@@ -56,6 +56,10 @@ interface CostConfig {
   electricityCostPerTray: number
   laborCostPerTray: number
   markupPercent: number
+  // Tray dimensions
+  trayLengthCm: number
+  trayWidthCm: number
+  trayDepthCm: number
 }
 
 const defaultCostConfig: CostConfig = {
@@ -68,6 +72,10 @@ const defaultCostConfig: CostConfig = {
   electricityCostPerTray: 2,
   laborCostPerTray: 5,
   markupPercent: 100,
+  // Tray dimensions: 42cm x 22cm x 2cm
+  trayLengthCm: 42,
+  trayWidthCm: 22,
+  trayDepthCm: 2,
 }
 
 export default function CostingPage() {
@@ -378,7 +386,7 @@ export default function CostingPage() {
       </Card>
 
       {/* Cost Configuration */}
-      <Card title="Production Cost Settings" subtitle="Configure your fixed costs">
+      <Card title="Production Cost Settings" subtitle="Configure your fixed costs • Tray: 42cm × 22cm × 2cm">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <CostInput
             label="Tray Cost"
@@ -406,6 +414,25 @@ export default function CostingPage() {
             onChange={(v) => setCostConfig({ ...costConfig, markupPercent: v })}
             suffix="%"
           />
+        </div>
+        
+        {/* Tray Dimensions Display */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <p className="text-sm font-medium text-gray-700 mb-2">Tray Dimensions</p>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-500">Length</p>
+              <p className="text-lg font-bold text-gray-900">{costConfig.trayLengthCm} cm</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-500">Width</p>
+              <p className="text-lg font-bold text-gray-900">{costConfig.trayWidthCm} cm</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <p className="text-xs text-gray-500">Depth</p>
+              <p className="text-lg font-bold text-gray-900">{costConfig.trayDepthCm} cm</p>
+            </div>
+          </div>
         </div>
       </Card>
 

@@ -12,13 +12,23 @@ const DURATION_DISCOUNTS = [
   { months: 12, weeks: 52, discount: 10, label: '12 Months', icon: Zap, color: 'bg-amber-100 text-amber-700 border-amber-200', bg: 'bg-amber-50' },
 ]
 
-const SUBSCRIPTION_PACK_SIZE = 100
+const SUBSCRIPTION_PACK_SIZES = [
+  { grams: 60, label: '60g' },
+  { grams: 100, label: '100g' },
+  { grams: 250, label: '250g' },
+  { grams: 500, label: '500g' },
+  { grams: 1000, label: '1kg' },
+  { grams: 5000, label: '5kg' },
+]
+
+const DEFAULT_PACK_SIZE = 100
 
 export default function SubscriptionsPage() {
   const [activeTab, setActiveTab] = useState('microgreens')
   const [microgreens, setMicrogreens] = useState<any[]>([])
   const [mixes, setMixes] = useState<any[]>([])
   const [selectedDuration, setSelectedDuration] = useState(DURATION_DISCOUNTS[0])
+  const [selectedPackSize, setSelectedPackSize] = useState(DEFAULT_PACK_SIZE)
 
   useEffect(() => {
     fetch('/api/microgreens?limit=100')
@@ -32,7 +42,7 @@ export default function SubscriptionsPage() {
 
   const calculatePrice = (listPricePerGram: number) => {
     if (!listPricePerGram) return 0
-    const basePrice = listPricePerGram * SUBSCRIPTION_PACK_SIZE
+    const basePrice = listPricePerGram * selectedPackSize
     const discountMultiplier = 1 - (selectedDuration.discount / 100)
     return (basePrice * discountMultiplier) + 3
   }
@@ -79,6 +89,25 @@ export default function SubscriptionsPage() {
         </div>
       </Card>
 
+      {/* Pack Size Selector */}
+      <Card title="Select Pack Size" subtitle="Choose your subscription pack size">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {SUBSCRIPTION_PACK_SIZES.map((size) => (
+            <button
+              key={size.grams}
+              onClick={() => setSelectedPackSize(size.grams)}
+              className={`p-3 rounded-xl border-2 transition-all text-center ${
+                selectedPackSize === size.grams
+                  ? 'bg-purple-100 border-purple-500 text-purple-700 shadow-md'
+                  : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="text-lg font-bold">{size.label}</div>
+            </button>
+          ))}
+        </div>
+      </Card>
+
       <div className="flex space-x-1 rounded-xl bg-gray-100 p-1">
         <button
           onClick={() => setActiveTab('microgreens')}
@@ -106,7 +135,7 @@ export default function SubscriptionsPage() {
 
       <Card 
         title={activeTab === 'microgreens' ? 'Microgreens Pricing' : 'Mixes Pricing'}
-        subtitle={`${SUBSCRIPTION_PACK_SIZE}g packs • ${selectedDuration.discount}% discount`}
+        subtitle={`${selectedPackSize}g packs • ${selectedDuration.discount}% discount`}
       >
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -145,10 +174,10 @@ export default function SubscriptionsPage() {
                 let totalPrice = 0
                 mix.components?.forEach((comp: any) => {
                   if (comp.microgreen?.listPricePerGram) {
-                    totalPrice += comp.microgreen.listPricePerGram * (comp.percentage / 100) * SUBSCRIPTION_PACK_SIZE
+                    totalPrice += comp.microgreen.listPricePerGram * (comp.percentage / 100) * selectedPackSize
                   }
                 })
-                const finalPrice = calculatePrice(totalPrice / SUBSCRIPTION_PACK_SIZE)
+                const finalPrice = calculatePrice(totalPrice / selectedPackSize)
                 
                 return (
                   <tr key={mix.id} className="hover:bg-purple-50">

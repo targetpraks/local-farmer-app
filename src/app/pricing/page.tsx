@@ -24,9 +24,12 @@ const DEFAULT_TIERS: PricingTier[] = [
 ]
 
 const PACK_SIZES = [
-  { name: 'Small', grams: 100, packaging: 'Polypack 155x225mm' },
-  { name: 'Medium', grams: 200, packaging: 'Polypack 200x300mm' },
-  { name: 'Large', grams: 500, packaging: 'Polypack 300x400mm' },
+  { name: 'XS', grams: 60, packaging: 'Polypack 100x150mm' },
+  { name: 'S', grams: 100, packaging: 'Polypack 155x225mm' },
+  { name: 'M', grams: 250, packaging: 'Polypack 200x300mm' },
+  { name: 'L', grams: 500, packaging: 'Polypack 300x400mm' },
+  { name: 'XL', grams: 1000, packaging: 'Bag 400x600mm' },
+  { name: 'XXL', grams: 5000, packaging: 'Bulk Bag' },
 ]
 
 export default function PricingPage() {
