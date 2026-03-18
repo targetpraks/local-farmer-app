@@ -45,7 +45,7 @@ const quickLinks = [
   { name: 'Microgreens', href: '/microgreens', icon: Leaf, color: 'bg-green-100 text-green-600', count: 'microgreens' },
   { name: 'Mixes', href: '/mixes', icon: FlaskConical, color: 'bg-blue-100 text-blue-600', count: 'mixes' },
   { name: 'Suppliers', href: '/suppliers', icon: Users, color: 'bg-orange-100 text-orange-600', count: 'suppliers' },
-  { name: 'Pricing Tiers', href: '/pricing', icon: CreditCard, color: 'bg-purple-100 text-purple-600', count: 'customerTiers' },
+  { name: 'Pricing Tiers', href: '/admin/pricing-tiers', icon: CreditCard, color: 'bg-purple-100 text-purple-600', count: 'customerTiers' },
   { name: 'Subscriptions', href: '/subscriptions', icon: Package, color: 'bg-pink-100 text-pink-600', count: 'subscriptionPlans' },
   { name: 'Costing', href: '/costing', icon: Database, color: 'bg-cyan-100 text-cyan-600', count: null },
 ]

@@ -6,12 +6,14 @@ const tierSchema = z.object({
   name: z.string().min(1),
   code: z.string().min(1),
   description: z.string().optional(),
-  markupType: z.enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FIXED_PRICE']),
-  markupValue: z.number().min(0),
+  markupPercent: z.number().optional(),
+  markupType: z.enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FIXED_PRICE']).optional(),
+  markupValue: z.number().min(0).optional(),
   minimumMargin: z.number().min(0).optional(),
   volumeDiscountThreshold: z.number().min(0).optional(),
   volumeDiscountPercent: z.number().min(0).max(100).optional(),
   priority: z.number().int().optional(),
+  isActive: z.boolean().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -51,7 +53,11 @@ export async function POST(request: NextRequest) {
     const validatedData = tierSchema.parse(body)
 
     const tier = await prisma.customerTier.create({
-      data: validatedData
+      data: {
+        ...validatedData,
+        markupType: validatedData.markupType || 'PERCENTAGE',
+        markupValue: validatedData.markupValue ?? validatedData.markupPercent ?? 0,
+      }
     })
 
     return NextResponse.json({ data: tier }, { status: 201 })

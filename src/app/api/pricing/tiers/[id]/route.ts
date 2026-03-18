@@ -5,6 +5,7 @@ import { z } from 'zod'
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
+  markupPercent: z.number().optional(),
   markupType: z.enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FIXED_PRICE']).optional(),
   markupValue: z.number().min(0).optional(),
   minimumMargin: z.number().min(0).optional(),
@@ -57,9 +58,16 @@ export async function PATCH(
     const body = await request.json()
     const validatedData = updateSchema.parse(body)
 
+    // Handle markupPercent -> markupValue conversion
+    const updateData: any = { ...validatedData }
+    if (validatedData.markupPercent !== undefined) {
+      updateData.markupValue = validatedData.markupPercent
+      delete updateData.markupPercent
+    }
+
     const tier = await prisma.customerTier.update({
       where: { id: params.id },
-      data: validatedData
+      data: updateData
     })
 
     return NextResponse.json({ data: tier })

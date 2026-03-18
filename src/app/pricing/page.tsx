@@ -2,10 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Leaf, Package, Store, Building2, UtensilsCrossed, ShoppingCart, TrendingUp, Calculator, Sparkles, ArrowRight } from 'lucide-react'
+import { Leaf, Package, Store, Building2, UtensilsCrossed, ShoppingCart, TrendingUp, Calculator, Sparkles, Settings } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+
+interface PricingTier {
+  id: string
+  name: string
+  code: string
+  markupPercent?: number
+  markupValue?: number
+  description?: string
+  isActive: boolean
+}
+
+const DEFAULT_TIERS: PricingTier[] = [
+  { id: 'retail', name: 'Retail', code: 'retail', markupPercent: 0, description: 'Direct to consumer', isActive: true },
+  { id: 'restaurant', name: 'Restaurant', code: 'restaurant', markupPercent: -10, description: 'Food service', isActive: true },
+  { id: 'wholesale', name: 'Wholesale', code: 'wholesale', markupPercent: -20, description: 'Bulk pricing', isActive: true },
+]
 
 const PACK_SIZES = [
   { name: 'Small', grams: 100, packaging: 'Polypack 155x225mm' },
@@ -13,20 +29,30 @@ const PACK_SIZES = [
   { name: 'Large', grams: 500, packaging: 'Polypack 300x400mm' },
 ]
 
-const DEFAULT_TIER_MARKUPS: Record<string, number> = {
-  retail: 0,
-  wholesale: -20,
-  restaurant: -10,
-}
-
 export default function PricingPage() {
   const [microgreens, setMicrogreens] = useState<any[]>([])
+  const [tiers, setTiers] = useState<PricingTier[]>(DEFAULT_TIERS)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTier, setSelectedTier] = useState('retail')
   const [packagingType, setPackagingType] = useState('retail')
   const [selectedPackSize, setSelectedPackSize] = useState(100)
 
   useEffect(() => {
+    // Load tiers from API
+    fetch('/api/pricing/tiers')
+      .then(res => res.json())
+      .then(result => {
+        if (result.data && result.data.length > 0) {
+          // Sort in order: retail, restaurant, wholesale
+          const sorted = [...result.data].sort((a: PricingTier, b: PricingTier) => {
+            const order = ['retail', 'restaurant', 'wholesale']
+            return order.indexOf(a.code) - order.indexOf(b.code)
+          })
+          setTiers(sorted.filter((t: PricingTier) => t.isActive))
+        }
+      })
+      .catch(err => console.error('Failed to load tiers:', err))
+
     fetch('/api/microgreens?limit=100')
       .then(res => res.json())
       .then(result => {
@@ -36,10 +62,14 @@ export default function PricingPage() {
       .catch(() => setIsLoading(false))
   }, [])
 
+  const getCurrentTier = () => tiers.find(t => t.code === selectedTier) || tiers[0]
+
   const calculatePricePerGram = (listPricePerGram: number) => {
     if (!listPricePerGram) return 0
-    const tierAdjustment = DEFAULT_TIER_MARKUPS[selectedTier] / 100
-    return listPricePerGram * (1 + tierAdjustment)
+    const tier = getCurrentTier()
+    // Use markupPercent if available, otherwise fall back to markupValue
+    const markupPercent = tier?.markupPercent ?? tier?.markupValue ?? 0
+    return listPricePerGram * (1 + markupPercent / 100)
   }
 
   const getPackagingCost = () => {
@@ -61,12 +91,31 @@ export default function PricingPage() {
     return gramsPrice + packagingCost + labelCost
   }
 
-  const getTierIcon = (tier: string) => {
-    switch (tier) {
+  const getTierIcon = (tierCode: string) => {
+    switch (tierCode) {
       case 'retail': return <Store className="h-4 w-4" />
       case 'wholesale': return <Building2 className="h-4 w-4" />
       case 'restaurant': return <UtensilsCrossed className="h-4 w-4" />
       default: return <Store className="h-4 w-4" />
+    }
+  }
+
+  const getTierColor = (tierCode: string) => {
+    switch (tierCode) {
+      case 'retail': return 'bg-blue-600'
+      case 'restaurant': return 'bg-amber-600'
+      case 'wholesale': return 'bg-purple-600'
+      default: return 'bg-gray-600'
+    }
+  }
+
+  const getTierBg = (tierCode: string, isSelected: boolean) => {
+    if (!isSelected) return 'text-gray-600 hover:bg-gray-50'
+    switch (tierCode) {
+      case 'retail': return 'bg-blue-600 text-white shadow-md'
+      case 'restaurant': return 'bg-amber-600 text-white shadow-md'
+      case 'wholesale': return 'bg-purple-600 text-white shadow-md'
+      default: return 'bg-gray-600 text-white'
     }
   }
 
@@ -81,41 +130,63 @@ export default function PricingPage() {
     )
   }
 
+  const currentTier = getCurrentTier()
+
   return (
     <div className="space-y-6 p-6">
       <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
-        <div className="flex items-center gap-3">
-          <Sparkles className="h-8 w-8 text-yellow-300" />
-          <div>
-            <h1 className="text-3xl font-bold">Pricing Calculator</h1>
-            <p className="text-green-100 mt-1">Set your prices with confidence</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-8 w-8 text-yellow-300" />
+            <div>
+              <h1 className="text-3xl font-bold">Pricing Calculator</h1>
+              <p className="text-green-100 mt-1">Set your prices with confidence</p>
+            </div>
           </div>
+          
+          <Link href="/admin/pricing-tiers">
+            <Button className="bg-white/20 hover:bg-white/30 text-white border-0">
+              <Settings className="h-4 w-4 mr-2" />
+              Configure Tiers
+            </Button>
+          </Link>
         </div>
       </div>
 
       <Card title="Pricing Controls" subtitle="Customize your pricing">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-            <label className="block text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+          {/* Customer Tier - Now in order: Retail, Restaurant, Wholesale */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <label className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Store className="h-4 w-4" />
               Customer Tier
+              {currentTier?.markupPercent !== undefined && currentTier.markupPercent !== 0 && (
+                <Badge className={`ml-2 ${
+                  currentTier.markupPercent > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                }`}>
+                  {currentTier.markupPercent > 0 ? '+' : ''}{currentTier.markupPercent}%
+                </Badge>
+              )}
             </label>
-            <div className="flex rounded-lg bg-white shadow-sm p-1 border border-blue-200">
-              {['retail', 'wholesale', 'restaurant'].map((tier) => (
+            <div className="flex rounded-lg bg-white shadow-sm p-1 border border-gray-200">
+              {tiers.filter(t => t.isActive).map((tier) => (
                 <button
-                  key={tier}
-                  onClick={() => setSelectedTier(tier)}
+                  key={tier.code}
+                  onClick={() => setSelectedTier(tier.code)}
                   className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                    selectedTier === tier
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                    getTierBg(tier.code, selectedTier === tier.code)
                   }`}
                 >
-                  {getTierIcon(tier)}
-                  <span className="ml-1.5 capitalize">{tier}</span>
+                  {getTierIcon(tier.code)}
+                  <span className="ml-1.5">{tier.name}</span>
                 </button>
               ))}
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {(currentTier?.markupPercent ?? 0) > 0 && `+${currentTier?.markupPercent}% markup applied`}
+              {(currentTier?.markupPercent ?? 0) === 0 && 'List price (no adjustment)'}
+              {(currentTier?.markupPercent ?? 0) < 0 && `${currentTier?.markupPercent}% discount applied`}
+            </p>
           </div>
 
           <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
@@ -174,8 +245,8 @@ export default function PricingPage() {
       </Card>
 
       <Card 
-        title={`${selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)} Pricing`}
-        subtitle={`${selectedPackSize}g ${packagingType} packs`}
+        title={`${currentTier?.name || 'Retail'} Pricing`}
+        subtitle={`${selectedPackSize}g ${packagingType} packs • ${(currentTier?.markupPercent ?? 0) > 0 ? '+' : ''}${currentTier?.markupPercent ?? 0}% adjustment`}
       >
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -184,7 +255,9 @@ export default function PricingPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Microgreen</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Seed Code</th>
                 <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">List Price/Gram</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Tier Price/Gram</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
+                  {currentTier?.name} Price/Gram
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase bg-green-500">
                   {selectedPackSize}g Pack
                 </th>
@@ -270,7 +343,7 @@ export default function PricingPage() {
         />
         <StatCard 
           title="Current Tier" 
-          value={selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}
+          value={currentTier?.name || 'Retail'}
           icon={getTierIcon(selectedTier)}
           color="bg-blue-100 text-blue-800 border-blue-200"
         />
