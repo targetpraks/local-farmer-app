@@ -7,6 +7,22 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 
+interface ProductionConfig {
+  packagingCostRetail: number
+  packagingCostWholesaleSmall: number
+  packagingCostWholesaleMedium: number
+  packagingCostWholesaleLarge: number
+  labelCost: number
+}
+
+const DEFAULT_CONFIG: ProductionConfig = {
+  packagingCostRetail: 3,
+  packagingCostWholesaleSmall: 1.5,
+  packagingCostWholesaleMedium: 2,
+  packagingCostWholesaleLarge: 3,
+  labelCost: 0.5,
+}
+
 interface PricingTier {
   id: string
   name: string
@@ -35,34 +51,35 @@ const PACK_SIZES = [
 export default function PricingPage() {
   const [microgreens, setMicrogreens] = useState<any[]>([])
   const [tiers, setTiers] = useState<PricingTier[]>(DEFAULT_TIERS)
+  const [config, setConfig] = useState<ProductionConfig>(DEFAULT_CONFIG)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTier, setSelectedTier] = useState('retail')
   const [packagingType, setPackagingType] = useState('retail')
   const [selectedPackSize, setSelectedPackSize] = useState(100)
 
   useEffect(() => {
-    // Load tiers from API
-    fetch('/api/pricing/tiers')
-      .then(res => res.json())
-      .then(result => {
-        if (result.data && result.data.length > 0) {
-          // Sort in order: retail, restaurant, wholesale
-          const sorted = [...result.data].sort((a: PricingTier, b: PricingTier) => {
-            const order = ['retail', 'restaurant', 'wholesale']
-            return order.indexOf(a.code) - order.indexOf(b.code)
-          })
-          setTiers(sorted.filter((t: PricingTier) => t.isActive))
-        }
-      })
-      .catch(err => console.error('Failed to load tiers:', err))
-
-    fetch('/api/microgreens?limit=100')
-      .then(res => res.json())
-      .then(result => {
-        setMicrogreens(result.data || [])
-        setIsLoading(false)
-      })
-      .catch(() => setIsLoading(false))
+    // Load tiers and production config
+    Promise.all([
+      fetch('/api/pricing/tiers').then(res => res.json()),
+      fetch('/api/production-costs').then(res => res.json()),
+      fetch('/api/microgreens?limit=100').then(res => res.json()),
+    ]).then(([tiersResult, configResult, microResult]) => {
+      if (tiersResult.data && tiersResult.data.length > 0) {
+        const sorted = [...tiersResult.data].sort((a: PricingTier, b: PricingTier) => {
+          const order = ['retail', 'restaurant', 'wholesale']
+          return order.indexOf(a.code) - order.indexOf(b.code)
+        })
+        setTiers(sorted.filter((t: PricingTier) => t.isActive))
+      }
+      if (configResult.data) {
+        setConfig({ ...DEFAULT_CONFIG, ...configResult.data })
+      }
+      setMicrogreens(microResult.data || [])
+      setIsLoading(false)
+    }).catch(err => {
+      console.error('Failed to load data:', err)
+      setIsLoading(false)
+    })
   }, [])
 
   const getCurrentTier = () => tiers.find(t => t.code === selectedTier) || tiers[0]
@@ -76,14 +93,14 @@ export default function PricingPage() {
   }
 
   const getPackagingCost = () => {
-    if (packagingType === 'retail') return 3
-    if (selectedPackSize === 100) return 1.5
-    if (selectedPackSize === 200) return 2
-    if (selectedPackSize === 500) return 3
-    return 2
+    if (packagingType === 'retail') return config.packagingCostRetail
+    // Wholesale packaging costs by pack size
+    if (selectedPackSize <= 100) return config.packagingCostWholesaleSmall
+    if (selectedPackSize <= 500) return config.packagingCostWholesaleMedium
+    return config.packagingCostWholesaleLarge
   }
 
-  const getLabelCost = () => 0.5
+  const getLabelCost = () => config.labelCost
 
   const calculatePackPrice = (microgreen: { listPricePerGram?: number }) => {
     const listPricePerGram = microgreen.listPricePerGram || 0

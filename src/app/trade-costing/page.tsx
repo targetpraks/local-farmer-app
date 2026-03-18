@@ -31,6 +31,11 @@ interface ProductionCostConfig {
   waterCostPerTray: number
   electricityCostPerTray: number
   laborCostPerTray: number
+  packagingCostRetail: number
+  packagingCostWholesaleSmall: number
+  packagingCostWholesaleMedium: number
+  packagingCostWholesaleLarge: number
+  labelCost: number
   markupPercent: number
 }
 
@@ -46,6 +51,11 @@ const defaultConfig: ProductionCostConfig = {
   waterCostPerTray: 1,
   electricityCostPerTray: 2,
   laborCostPerTray: 5,
+  packagingCostRetail: 3,
+  packagingCostWholesaleSmall: 1.5,
+  packagingCostWholesaleMedium: 2,
+  packagingCostWholesaleLarge: 3,
+  labelCost: 0.5,
   markupPercent: 100,
 }
 
@@ -299,6 +309,56 @@ export default function TradeCostingPage() {
                 suffix="%"
                 icon={<TrendingUp className="h-4 w-4 text-purple-500" />}
                 description="Default markup percentage for pricing"
+              />
+            </div>
+          </Card>
+
+          {/* Packaging Costs */}
+          <Card title="Packaging Costs" subtitle="Packaging and labeling costs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CostInput
+                label="Retail Packaging"
+                value={config.packagingCostRetail}
+                onChange={(v) => updateConfig('packagingCostRetail', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-blue-500" />}
+                description="Retail packaging cost per pack"
+              />
+              
+              <CostInput
+                label="Wholesale Small (60-100g)"
+                value={config.packagingCostWholesaleSmall}
+                onChange={(v) => updateConfig('packagingCostWholesaleSmall', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-green-500" />}
+                description="Wholesale packaging for small packs"
+              />
+              
+              <CostInput
+                label="Wholesale Medium (250-500g)"
+                value={config.packagingCostWholesaleMedium}
+                onChange={(v) => updateConfig('packagingCostWholesaleMedium', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-amber-500" />}
+                description="Wholesale packaging for medium packs"
+              />
+              
+              <CostInput
+                label="Wholesale Large (1-5kg)"
+                value={config.packagingCostWholesaleLarge}
+                onChange={(v) => updateConfig('packagingCostWholesaleLarge', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-purple-500" />}
+                description="Wholesale packaging for large packs"
+              />
+              
+              <CostInput
+                label="Label Cost"
+                value={config.labelCost}
+                onChange={(v) => updateConfig('labelCost', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-gray-500" />}
+                description="Label cost per pack"
               />
             </div>
           </Card>

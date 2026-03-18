@@ -5,6 +5,15 @@ import Link from 'next/link'
 import { Leaf, Package, Gift, Clock, Calendar, Zap, Sprout, FlaskConical } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { LoadingSpinner } from '@/components/LoadingSpinner'
+
+interface ProductionConfig {
+  packagingCostRetail: number
+  packagingCostWholesaleSmall: number
+  packagingCostWholesaleMedium: number
+  packagingCostWholesaleLarge: number
+  labelCost: number
+}
 
 const DURATION_DISCOUNTS = [
   { months: 3, weeks: 12, discount: 4, label: '3 Months', icon: Clock, color: 'bg-blue-100 text-blue-700 border-blue-200', bg: 'bg-blue-50' },
@@ -23,28 +32,60 @@ const SUBSCRIPTION_PACK_SIZES = [
 
 const DEFAULT_PACK_SIZE = 100
 
+const defaultConfig: ProductionConfig = {
+  packagingCostRetail: 3,
+  packagingCostWholesaleSmall: 1.5,
+  packagingCostWholesaleMedium: 2,
+  packagingCostWholesaleLarge: 3,
+  labelCost: 0.5,
+}
+
 export default function SubscriptionsPage() {
   const [activeTab, setActiveTab] = useState('microgreens')
   const [microgreens, setMicrogreens] = useState<any[]>([])
   const [mixes, setMixes] = useState<any[]>([])
+  const [config, setConfig] = useState<ProductionConfig>(defaultConfig)
   const [selectedDuration, setSelectedDuration] = useState(DURATION_DISCOUNTS[0])
   const [selectedPackSize, setSelectedPackSize] = useState(DEFAULT_PACK_SIZE)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/microgreens?limit=100')
-      .then(res => res.json())
-      .then(result => setMicrogreens(result.data || []))
-    
-    fetch('/api/mixes')
-      .then(res => res.json())
-      .then(result => setMixes(result.data || []))
+    // Load microgreens and mixes
+    Promise.all([
+      fetch('/api/microgreens?limit=100').then(res => res.json()),
+      fetch('/api/mixes').then(res => res.json()),
+      fetch('/api/production-costs').then(res => res.json()),
+    ]).then(([microResult, mixesResult, configResult]) => {
+      setMicrogreens(microResult.data || [])
+      setMixes(mixesResult.data || [])
+      if (configResult.data) {
+        setConfig({ ...defaultConfig, ...configResult.data })
+      }
+      setIsLoading(false)
+    }).catch(err => {
+      console.error('Failed to load data:', err)
+      setIsLoading(false)
+    })
   }, [])
+
+  const getPackagingCost = () => {
+    // Subscriptions are wholesale
+    if (selectedPackSize <= 100) return config.packagingCostWholesaleSmall
+    if (selectedPackSize <= 500) return config.packagingCostWholesaleMedium
+    return config.packagingCostWholesaleLarge
+  }
 
   const calculatePrice = (listPricePerGram: number) => {
     if (!listPricePerGram) return 0
     const basePrice = listPricePerGram * selectedPackSize
     const discountMultiplier = 1 - (selectedDuration.discount / 100)
-    return (basePrice * discountMultiplier) + 3
+    const packagingCost = getPackagingCost()
+    const labelCost = config.labelCost
+    return (basePrice * discountMultiplier) + packagingCost + labelCost
+  }
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen />
   }
 
   return (
@@ -106,6 +147,17 @@ export default function SubscriptionsPage() {
             </button>
           ))}
         </div>
+        
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+          <div className="flex justify-between">
+            <span>Packaging Cost:</span>
+            <span className="font-medium">R{getPackagingCost().toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Label Cost:</span>
+            <span className="font-medium">R{config.labelCost.toFixed(2)}</span>
+          </div>
+        </div>
       </Card>
 
       <div className="flex space-x-1 rounded-xl bg-gray-100 p-1">
@@ -135,7 +187,7 @@ export default function SubscriptionsPage() {
 
       <Card 
         title={activeTab === 'microgreens' ? 'Microgreens Pricing' : 'Mixes Pricing'}
-        subtitle={`${selectedPackSize}g packs • ${selectedDuration.discount}% discount`}
+        subtitle={`${selectedPackSize}g packs • ${selectedDuration.discount}% discount • Packaging: R${getPackagingCost().toFixed(2)}`}
       >
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
