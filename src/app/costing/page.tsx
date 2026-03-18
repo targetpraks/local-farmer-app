@@ -15,14 +15,14 @@ import {
   Leaf,
   Search,
   Filter,
-  Download
+  Download,
+  Beaker
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
-import { Tooltip } from '@/components/Tooltip'
 
 interface Supplier {
   id: string
@@ -46,60 +46,18 @@ interface MicrogreenCost {
   bestSupplierId: string | null
 }
 
-interface CostConfig {
-  trayCost: number
-  trayUses: number
-  fabricPaperCost: number
-  soilCostPerKg: number
-  soilPerTrayGrams: number
-  waterCostPerTray: number
-  electricityCostPerTray: number
-  laborCostPerTray: number
-  markupPercent: number
-  // Tray dimensions
-  trayLengthCm: number
-  trayWidthCm: number
-  trayDepthCm: number
-}
-
-const defaultCostConfig: CostConfig = {
-  trayCost: 50,
-  trayUses: 1000,
-  fabricPaperCost: 2,
-  soilCostPerKg: 15,
-  soilPerTrayGrams: 500,
-  waterCostPerTray: 1,
-  electricityCostPerTray: 2,
-  laborCostPerTray: 5,
-  markupPercent: 100,
-  // Tray dimensions: 42cm x 22cm x 2cm
-  trayLengthCm: 42,
-  trayWidthCm: 22,
-  trayDepthCm: 2,
-}
-
-export default function CostingPage() {
+export default function SeedCostingPage() {
   const [microgreens, setMicrogreens] = useState<MicrogreenCost[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [costConfig, setCostConfig] = useState<CostConfig>(defaultCostConfig)
   const [searchQuery, setSearchQuery] = useState('')
   const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false)
 
   useEffect(() => {
     fetchData()
-    const savedConfig = localStorage.getItem('costConfig')
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig)
-        setCostConfig({ ...defaultCostConfig, ...parsed })
-      } catch (e) {
-        console.error('Failed to load saved config:', e)
-      }
-    }
   }, [])
 
   const fetchData = async () => {
@@ -177,24 +135,9 @@ export default function CostingPage() {
     }))
   }
 
-  const calculateCosts = (m: MicrogreenCost) => {
-    const seedCost = m.bestPrice * m.seedingDensity
-    const trayAmortizedCost = costConfig.trayCost / costConfig.trayUses
-    const soilCost = (costConfig.soilCostPerKg / 1000) * costConfig.soilPerTrayGrams
-    const totalCostPerTray = trayAmortizedCost + soilCost + costConfig.fabricPaperCost + 
-                            costConfig.waterCostPerTray + costConfig.electricityCostPerTray + 
-                            costConfig.laborCostPerTray + seedCost
-    const costPerGram = totalCostPerTray / m.yieldPerTray
-    const listPricePerGram = costPerGram * (1 + costConfig.markupPercent / 100)
-
-    return {
-      seedCost,
-      trayAmortizedCost,
-      soilCost,
-      totalCostPerTray,
-      costPerGram,
-      listPricePerGram,
-    }
+  const calculateSeedCost = (m: MicrogreenCost) => {
+    // Cost per tray = best price × seeding density
+    return m.bestPrice * m.seedingDensity
   }
 
   const saveCosts = async () => {
@@ -206,20 +149,17 @@ export default function CostingPage() {
       const savePromises = microgreens.map(async (m) => {
         if (m.bestPrice <= 0) return
 
-        const costs = calculateCosts(m)
-
         return fetch(`/api/microgreens/${m.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             defaultSeedCostPerGram: m.bestPrice,
-            listPricePerGram: costs.listPricePerGram,
           }),
         })
       })
 
       await Promise.all(savePromises)
-      setSuccessMessage('All costs saved successfully!')
+      setSuccessMessage('All seed costs saved successfully!')
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save costs')
@@ -229,17 +169,19 @@ export default function CostingPage() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Supplier 1', 'Price 1', 'Supplier 2', 'Price 2', 'Supplier 3', 'Price 3', 'Best Price', 'Cost/Gram', 'List Price/Gram']
+    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding Density', 'Yield/Tray', 'Supplier 1', 'Price 1', 'Supplier 2', 'Price 2', 'Supplier 3', 'Price 3', 'Best Price', 'Seed Cost/Tray']
     const rows = microgreens.map(m => {
-      const costs = calculateCosts(m)
       const s1 = suppliers.find(s => s.id === m.supplierPrices.supplier1.supplierId)?.name || ''
       const s2 = suppliers.find(s => s.id === m.supplierPrices.supplier2.supplierId)?.name || ''
       const s3 = suppliers.find(s => s.id === m.supplierPrices.supplier3.supplierId)?.name || ''
+      const seedCost = calculateSeedCost(m)
       
       return [
         m.name,
         m.variety || '',
         m.seedCode,
+        m.seedingDensity,
+        m.yieldPerTray,
         s1,
         m.supplierPrices.supplier1.price || '',
         s2,
@@ -247,8 +189,7 @@ export default function CostingPage() {
         s3,
         m.supplierPrices.supplier3.price || '',
         m.bestPrice.toFixed(2),
-        costs.costPerGram.toFixed(4),
-        costs.listPricePerGram.toFixed(4),
+        seedCost.toFixed(2),
       ].join(',')
     })
 
@@ -257,7 +198,7 @@ export default function CostingPage() {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `microgreen-costs-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `seed-costs-${new Date().toISOString().split('T')[0]}.csv`
     a.click()
   }
 
@@ -287,15 +228,21 @@ export default function CostingPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-white/20 rounded-xl">
-              <Calculator className="h-8 w-8" />
+              <Beaker className="h-8 w-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">Cost Calculator</h1>
+              <h1 className="text-3xl font-bold">Seed Costing</h1>
               <p className="text-cyan-100 mt-1">Compare supplier prices • {microgreens.length} microgreens</p>
             </div>
           </div>
           
           <div className="flex gap-3">
+            <Link href="/suppliers"
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+            >
+              <Store className="h-4 w-4" />
+              Production Costs
+            </Link>
             <button
               onClick={exportToCSV}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
@@ -308,12 +255,10 @@ export default function CostingPage() {
               disabled={isSaving}
               className="flex items-center gap-2 px-4 py-2 bg-white text-cyan-600 rounded-lg text-sm font-medium hover:bg-cyan-50 disabled:opacity-50 transition-colors"
             >
-              {isSaving ? (
-                <>Saving...</>
-              ) : (
+              {isSaving ? 'Saving...' : (
                 <>
                   <Save className="h-4 w-4" />
-                  Save All Costs
+                  Save All
                 </>
               )}
             </button>
@@ -385,57 +330,6 @@ export default function CostingPage() {
         </div>
       </Card>
 
-      {/* Cost Configuration */}
-      <Card title="Production Cost Settings" subtitle="Configure your fixed costs • Tray: 42cm × 22cm × 2cm">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <CostInput
-            label="Tray Cost"
-            value={costConfig.trayCost}
-            onChange={(v) => setCostConfig({ ...costConfig, trayCost: v })}
-            suffix="R"
-          />
-          <CostInput
-            label="Tray Uses"
-            value={costConfig.trayUses}
-            onChange={(v) => setCostConfig({ ...costConfig, trayUses: v })}
-            suffix="uses"
-          />
-          
-          <CostInput
-            label="Soil Cost"
-            value={costConfig.soilCostPerKg}
-            onChange={(v) => setCostConfig({ ...costConfig, soilCostPerKg: v })}
-            suffix="R/kg"
-          />
-          
-          <CostInput
-            label="Markup %"
-            value={costConfig.markupPercent}
-            onChange={(v) => setCostConfig({ ...costConfig, markupPercent: v })}
-            suffix="%"
-          />
-        </div>
-        
-        {/* Tray Dimensions Display */}
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-sm font-medium text-gray-700 mb-2">Tray Dimensions</p>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500">Length</p>
-              <p className="text-lg font-bold text-gray-900">{costConfig.trayLengthCm} cm</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500">Width</p>
-              <p className="text-lg font-bold text-gray-900">{costConfig.trayWidthCm} cm</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-500">Depth</p>
-              <p className="text-lg font-bold text-gray-900">{costConfig.trayDepthCm} cm</p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {/* Supplier Prices Table */}
       <Card 
         title="Supplier Price Comparison" 
@@ -447,17 +341,18 @@ export default function CostingPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase sticky left-0 bg-gray-50 z-10">Microgreen</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Seed Code</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Seeding</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Yield</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-blue-50">Supplier 1</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-green-50">Supplier 2</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-purple-50">Supplier 3</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-white uppercase bg-emerald-600">Best Price</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Cost/Gram</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">List Price</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Seed Cost/Tray</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredMicrogreens.map((m) => {
-                const costs = calculateCosts(m)
+                const seedCost = calculateSeedCost(m)
                 const hasBestPrice = m.bestPrice > 0
 
                 return (
@@ -475,6 +370,18 @@ export default function CostingPage() {
                     </td>
                     
                     <td className="px-4 py-3 text-sm text-gray-500 font-mono">{m.seedCode}</td>
+                    
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        {m.seedingDensity}g
+                      </span>
+                    </td>
+                    
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {m.yieldPerTray}g
+                      </span>
+                    </td>
                     
                     {/* Supplier 1 */}
                     <td className="px-2 py-3 bg-blue-50/50">
@@ -580,14 +487,8 @@ export default function CostingPage() {
                     </td>
                     
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm font-medium text-gray-700">
-                        {hasBestPrice ? `R${costs.costPerGram.toFixed(4)}` : '-'}
-                      </span>
-                    </td>
-                    
-                    <td className="px-4 py-3 text-right">
                       <span className="text-sm font-bold text-cyan-700">
-                        {hasBestPrice ? `R${costs.listPricePerGram.toFixed(4)}` : '-'}
+                        {hasBestPrice ? `R${seedCost.toFixed(2)}` : '-'}
                       </span>
                     </td>
                   </tr>
@@ -617,23 +518,6 @@ function StatCard({ title, value, icon, color }: { title: string; value: string;
           <div className="text-2xl font-bold text-gray-900 mt-1">{value}</div>
         </div>
         <div className="p-2 bg-white rounded-lg shadow-sm">{icon}</div>
-      </div>
-    </div>
-  )
-}
-
-function CostInput({ label, value, onChange, suffix }: { label: string; value: number; onChange: (v: number) => void; suffix: string }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <div className="relative">
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          className="w-full pr-12 pl-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-        />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{suffix}</span>
       </div>
     </div>
   )
