@@ -12,6 +12,7 @@ const updateSchema = z.object({
   defaultSeedCostPerGram: z.number().min(0).optional(),
   defaultSoilCostPerTray: z.number().min(0).optional(),
   defaultTrayCost: z.number().min(0).optional(),
+  listPricePerGram: z.number().min(0).optional(),
   imageUrl: z.string().url().optional().or(z.literal('')),
   isActive: z.boolean().optional(),
 })

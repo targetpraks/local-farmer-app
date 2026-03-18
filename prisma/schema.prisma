@@ -28,6 +28,9 @@ model Microgreen {
   defaultSeedCostPerGram Float?
   defaultSoilCostPerTray Float?
   defaultTrayCost        Float?
+  
+  // Pricing - base list price from costing (cost + markup)
+  listPricePerGram Float?
 
   // Metadata
   imageUrl  String?

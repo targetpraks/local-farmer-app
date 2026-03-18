@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Leaf, Package, Zap, Users, Beaker, Droplets, Grid3X3, Calculator, Save, TrendingUp, Percent, ArrowRight } from 'lucide-react'
+import { Leaf, Package, Zap, Users, Beaker, Droplets, Grid3X3, Calculator, Save, TrendingUp, Percent, ArrowRight, Tag } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -24,7 +24,7 @@ interface CostConfig {
   waterCostPerTray: number
   electricityCostPerTray: number
   laborCostPerTray: number
-  marginPercent: number
+  markupPercent: number
 }
 
 interface CostCalculation {
@@ -43,10 +43,8 @@ interface CostCalculation {
   seedCost: number
   totalCostPerTray: number
   costPerGram: number
-  marginPercent: number
+  markupPercent: number
   listPricePerGram: number
-  discountPercent: number
-  finalPricePerGram: number
 }
 
 const defaultCostConfig: CostConfig = {
@@ -58,7 +56,7 @@ const defaultCostConfig: CostConfig = {
   waterCostPerTray: 1,
   electricityCostPerTray: 2,
   laborCostPerTray: 5,
-  marginPercent: 50,
+  markupPercent: 100,
 }
 
 export default function CostingPage() {
@@ -69,7 +67,6 @@ export default function CostingPage() {
   const [error, setError] = useState<string | null>(null)
   const [costConfig, setCostConfig] = useState<CostConfig>(defaultCostConfig)
   const [selectedMicrogreenId, setSelectedMicrogreenId] = useState('')
-  const [discountPercent, setDiscountPercent] = useState(0)
   const [calculation, setCalculation] = useState<CostCalculation | null>(null)
 
   useEffect(() => {
@@ -77,7 +74,12 @@ export default function CostingPage() {
     const savedConfig = localStorage.getItem('costConfig')
     if (savedConfig) {
       try {
-        setCostConfig(JSON.parse(savedConfig))
+        const parsed = JSON.parse(savedConfig)
+        setCostConfig({
+          ...defaultCostConfig,
+          ...parsed,
+          markupPercent: parsed.markupPercent || parsed.marginPercent || 100,
+        })
       } catch (e) {
         console.error('Failed to load saved config:', e)
       }
@@ -114,7 +116,7 @@ export default function CostingPage() {
     alert('Configuration saved!')
   }
 
-  const calculateCosts = () => {
+  const calculateCosts = async () => {
     if (!selectedMicrogreenId) return
     
     const microgreen = microgreens.find(m => m.id === selectedMicrogreenId)
@@ -124,6 +126,7 @@ export default function CostingPage() {
     const yieldPerTray = microgreen.yieldPerTray || 0
     const seedCostPerGram = microgreen.defaultSeedCostPerGram || 0
 
+    // Calculate costs per tray
     const trayAmortizedCost = costConfig.trayCost / costConfig.trayUses
     const soilCost = (costConfig.soilCostPerKg / 1000) * costConfig.soilPerTrayGrams
     const fabricPaperCost = costConfig.fabricPaperCost
@@ -134,11 +137,32 @@ export default function CostingPage() {
 
     const totalCostPerTray = trayAmortizedCost + soilCost + fabricPaperCost + 
                              waterCost + electricityCost + laborCost + seedCost
+    
+    // Cost per gram
     const costPerGram = yieldPerTray > 0 ? totalCostPerTray / yieldPerTray : 0
-    const marginMultiplier = 1 + (costConfig.marginPercent / 100)
-    const listPricePerGram = costPerGram * marginMultiplier
-    const discountMultiplier = 1 - (discountPercent / 100)
-    const finalPricePerGram = listPricePerGram * discountMultiplier
+    
+    // List price with MARKUP (not margin)
+    const markupMultiplier = 1 + (costConfig.markupPercent / 100)
+    const listPricePerGram = costPerGram * markupMultiplier
+
+    // Save the list price to the microgreen
+    try {
+      const response = await fetch(`/api/microgreens/${microgreen.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listPricePerGram }),
+      })
+      if (!response.ok) {
+        console.error('Failed to save list price')
+      } else {
+        // Update local state
+        setMicrogreens(prev => prev.map(m => 
+          m.id === microgreen.id ? { ...m, listPricePerGram } : m
+        ))
+      }
+    } catch (err) {
+      console.error('Error saving list price:', err)
+    }
 
     setCalculation({
       microgreenId: microgreen.id,
@@ -156,10 +180,8 @@ export default function CostingPage() {
       seedCost,
       totalCostPerTray,
       costPerGram,
-      marginPercent: costConfig.marginPercent,
+      markupPercent: costConfig.markupPercent,
       listPricePerGram,
-      discountPercent,
-      finalPricePerGram,
     })
   }
 
@@ -174,7 +196,7 @@ export default function CostingPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">💰 Costing</h1>
-            <p className="text-cyan-100 mt-1">Calculate production costs and pricing per microgreen</p>
+            <p className="text-cyan-100 mt-1">Calculate production costs and set your list price with markup</p>
           </div>
         </div>
 
@@ -308,16 +330,22 @@ export default function CostingPage() {
             </div>
           </Card>
 
-          <Card title="Pricing Defaults" subtitle="Default margin for calculations">
+          <Card title="Pricing Defaults" subtitle="Default markup for list price">
             <div className="flex items-center gap-3">
-              <TrendingUp className="h-5 w-5 text-green-500" />
+              <Tag className="h-5 w-5 text-green-500" />
               <Input
-                label="Default Margin (%)"
+                label="Default Markup (%)"
                 type="number"
-                value={costConfig.marginPercent}
-                onChange={(e) => setCostConfig({ ...costConfig, marginPercent: parseFloat(e.target.value) || 0 })}
-                hint="Applied to cost per gram to get list price"
+                value={costConfig.markupPercent}
+                onChange={(e) => setCostConfig({ ...costConfig, markupPercent: parseFloat(e.target.value) || 0 })}
+                hint="Markup = Cost + (Cost × Markup%). Example: 100% markup doubles the cost"
               />
+            </div>
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800">
+                <strong>Markup vs Margin:</strong> Markup is added to cost. 100% markup = Cost × 2. 
+                This becomes your list price that feeds into the pricing page.
+              </p>
             </div>
           </Card>
 
@@ -355,7 +383,7 @@ export default function CostingPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <Card title="Select Microgreen" subtitle="Choose a variety to calculate costs">
+          <Card title="Select Microgreen" subtitle="Choose a variety to calculate costs and list price">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select
                 label="Microgreen"
@@ -372,22 +400,16 @@ export default function CostingPage() {
                   }))
                 ]}
               />
-              <Input
-                label="Discount (%)"
-                type="number"
-                value={discountPercent}
-                onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                hint="Applied to list price"
-              />
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button 
-                onClick={calculateCosts} 
-                disabled={!selectedMicrogreenId}
-              >
-                <Calculator className="h-4 w-4 mr-2" />
-                Calculate Costs
-              </Button>
+              <div className="flex items-end">
+                <Button 
+                  onClick={calculateCosts} 
+                  disabled={!selectedMicrogreenId}
+                  className="w-full"
+                >
+                  <Calculator className="h-4 w-4 mr-2" />
+                  Calculate Costs & List Price
+                </Button>
+              </div>
             </div>
           </Card>
 
@@ -429,7 +451,7 @@ export default function CostingPage() {
                 </div>
               </Card>
 
-              <Card title="Pricing Calculation" subtitle="From cost to final price">
+              <Card title="List Price Calculation" subtitle="Using markup (not margin)">
                 <div className="space-y-4">
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-sm text-gray-600 mb-1">Step 1: Cost per Gram</div>
@@ -440,43 +462,24 @@ export default function CostingPage() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="text-sm text-gray-600 mb-1">Step 2: List Price ({calculation.marginPercent}% margin)</div>
+                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <div className="text-sm text-gray-600 mb-1">Step 2: Apply Markup ({calculation.markupPercent}%)</div>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>R{calculation.costPerGram.toFixed(4)} × {calculation.marginPercent}%</span>
+                      <span>R{calculation.costPerGram.toFixed(4)} + {calculation.markupPercent}%</span>
                       <span>=</span>
-                      <span className="text-lg font-bold text-green-700">R{calculation.listPricePerGram.toFixed(4)}/g</span>
+                      <span className="text-lg font-bold text-amber-700">R{calculation.listPricePerGram.toFixed(4)}/g</span>
+                    </div>
+                    <div className="mt-2 text-xs text-amber-700">
+                      Formula: Cost × (1 + {calculation.markupPercent}%) = List Price
                     </div>
                   </div>
 
-                  {calculation.discountPercent > 0 && (
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="text-sm text-gray-600 mb-1">Step 3: Final Price ({calculation.discountPercent}% discount)</div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>R{calculation.listPricePerGram.toFixed(4)} - {calculation.discountPercent}%</span>
-                        <span>=</span>
-                        <span className="text-lg font-bold text-blue-700">R{calculation.finalPricePerGram.toFixed(4)}/g</span>
-                      </div>
+                  <div className="bg-gradient-to-r from-green-100 to-emerald-100 p-6 rounded-xl border-2 border-green-300 text-center">
+                    <div className="text-sm text-gray-600 mb-2">🎯 LIST PRICE (Saved to microgreen)</div>
+                    <div className="text-3xl font-bold text-green-700">R{calculation.listPricePerGram.toFixed(4)}/g</div>
+                    <div className="text-sm text-gray-500 mt-2">
+                      This price is now saved and will be used in the pricing page.
                     </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div className="bg-green-100 p-4 rounded-lg border-2 border-green-300 text-center">
-                      <div className="text-sm text-gray-600">List Price</div>
-                      <div className="text-2xl font-bold text-green-700">R{calculation.listPricePerGram.toFixed(2)}/g</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        R{(calculation.listPricePerGram * 100).toFixed(2)} per 100g pack
-                      </div>
-                    </div>
-                    {calculation.discountPercent > 0 && (
-                      <div className="bg-blue-100 p-4 rounded-lg border-2 border-blue-300 text-center">
-                        <div className="text-sm text-gray-600">Final Price ({calculation.discountPercent}% off)</div>
-                        <div className="text-2xl font-bold text-blue-700">R{calculation.finalPricePerGram.toFixed(2)}/g</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          R{(calculation.finalPricePerGram * 100).toFixed(2)} per 100g pack
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </Card>
