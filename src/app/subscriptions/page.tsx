@@ -4,11 +4,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Leaf, Package, Gift, Clock, Calendar, Zap, Sprout, FlaskConical } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
-import { Microgreen, MixWithComponents } from '@/types'
 
 const DURATION_DISCOUNTS = [
   { months: 3, weeks: 12, discount: 4, label: '3 Months', icon: Clock, color: 'bg-blue-100 text-blue-700 border-blue-200', bg: 'bg-blue-50' },
@@ -19,9 +17,9 @@ const DURATION_DISCOUNTS = [
 const SUBSCRIPTION_PACK_SIZE = 100
 
 export default function SubscriptionsPage() {
-  const [activeTab, setActiveTab] = useState<'microgreens' | 'mixes'>('microgreens')
-  const [microgreens, setMicrogreens] = useState<Microgreen[]>([])
-  const [mixes, setMixes] = useState<MixWithComponents[]>([])
+  const [activeTab, setActiveTab] = useState('microgreens')
+  const [microgreens, setMicrogreens] = useState([])
+  const [mixes, setMixes] = useState([])
   const [selectedDuration, setSelectedDuration] = useState(DURATION_DISCOUNTS[0])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +53,7 @@ export default function SubscriptionsPage() {
     }
   }
 
-  const calculateSubscriptionPrice = (listPricePerGram: number | null | undefined): number => {
+  const calculateSubscriptionPrice = (listPricePerGram: number | null | undefined) => {
     if (!listPricePerGram) return 0
     
     const basePrice = listPricePerGram * SUBSCRIPTION_PACK_SIZE
@@ -66,22 +64,20 @@ export default function SubscriptionsPage() {
     return (basePrice * discountMultiplier) + packagingCost + labelCost
   }
 
-  const calculateMixPrice = (mix: MixWithComponents): number => {
+  const calculateMixPrice = (mix: any) => {
     if (!mix.components || mix.components.length === 0) return 0
     
     let totalListPrice = 0
-    let totalWeight = 0
     
     mix.components.forEach((comp) => {
       const microgreen = comp.microgreen
       if (microgreen && microgreen.listPricePerGram) {
         const weight = (comp.percentage / 100) * SUBSCRIPTION_PACK_SIZE
         totalListPrice += microgreen.listPricePerGram * weight
-        totalWeight += weight
       }
     })
     
-    if (totalWeight === 0) return 0
+    if (totalListPrice === 0) return 0
     
     const discountMultiplier = 1 - (selectedDuration.discount / 100)
     const packagingCost = 2.5
@@ -328,15 +324,7 @@ export default function SubscriptionsPage() {
   )
 }
 
-interface StatCardProps {
-  title: string
-  value: string
-  subtitle: string
-  icon: React.ReactNode
-  color: string
-}
-
-function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
+function StatCard({ title, value, subtitle, icon, color }: { title: string; value: string; subtitle: string; icon: React.ReactNode; color: string }) {
   return (
     <div className={`p-4 rounded-xl border shadow-sm ${color}`}>
       <div className="flex items-center justify-between">
