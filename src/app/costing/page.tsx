@@ -29,6 +29,30 @@ interface Supplier {
   name: string
 }
 
+interface ProductionCostConfig {
+  trayCost: number
+  trayUses: number
+  fabricPaperCost: number
+  soilCostPerKg: number
+  soilPerTrayGrams: number
+  waterCostPerTray: number
+  electricityCostPerTray: number
+  laborCostPerTray: number
+  markupPercent: number
+}
+
+const defaultProductionConfig: ProductionCostConfig = {
+  trayCost: 50,
+  trayUses: 1000,
+  fabricPaperCost: 2,
+  soilCostPerKg: 15,
+  soilPerTrayGrams: 500,
+  waterCostPerTray: 1,
+  electricityCostPerTray: 2,
+  laborCostPerTray: 5,
+  markupPercent: 100,
+}
+
 interface MicrogreenCost {
   id: string
   name: string
@@ -49,6 +73,7 @@ interface MicrogreenCost {
 export default function SeedCostingPage() {
   const [microgreens, setMicrogreens] = useState<MicrogreenCost[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [productionConfig, setProductionConfig] = useState<ProductionCostConfig>(defaultProductionConfig)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,6 +83,16 @@ export default function SeedCostingPage() {
 
   useEffect(() => {
     fetchData()
+    // Load production costs from localStorage
+    const savedConfig = localStorage.getItem('productionCostConfig')
+    if (savedConfig) {
+      try {
+        const parsed = JSON.parse(savedConfig)
+        setProductionConfig({ ...defaultProductionConfig, ...parsed })
+      } catch (e) {
+        console.error('Failed to load production config:', e)
+      }
+    }
   }, [])
 
   const fetchData = async () => {
@@ -135,6 +170,29 @@ export default function SeedCostingPage() {
     }))
   }
 
+  const calculateProductionCostPerTray = () => {
+    // Production cost per tray = amortized tray + soil + fabric + water + electricity + labor
+    const trayAmortized = productionConfig.trayCost / productionConfig.trayUses
+    const soilCost = (productionConfig.soilCostPerKg / 1000) * productionConfig.soilPerTrayGrams
+    return trayAmortized + productionConfig.fabricPaperCost + soilCost + 
+           productionConfig.waterCostPerTray + productionConfig.electricityCostPerTray + 
+           productionConfig.laborCostPerTray
+  }
+
+  const calculateTotalCostPerGram = (m: MicrogreenCost) => {
+    // Total cost per gram = seed cost per gram + production cost per gram
+    const seedCostPerGram = m.bestPrice
+    const productionCostPerTray = calculateProductionCostPerTray()
+    const productionCostPerGram = productionCostPerTray / m.yieldPerTray
+    return seedCostPerGram + productionCostPerGram
+  }
+
+  const calculateListPricePerGram = (m: MicrogreenCost) => {
+    // List price = total cost × (1 + markup%)
+    const totalCost = calculateTotalCostPerGram(m)
+    return totalCost * (1 + productionConfig.markupPercent / 100)
+  }
+
   const calculateSeedCost = (m: MicrogreenCost) => {
     // Cost per tray = best price × seeding density
     return m.bestPrice * m.seedingDensity
@@ -145,21 +203,24 @@ export default function SeedCostingPage() {
       setIsSaving(true)
       setSuccessMessage(null)
 
-      // Save each microgreen's best price
+      // Save each microgreen's calculated list price
       const savePromises = microgreens.map(async (m) => {
         if (m.bestPrice <= 0) return
+
+        const listPricePerGram = calculateListPricePerGram(m)
 
         return fetch(`/api/microgreens/${m.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             defaultSeedCostPerGram: m.bestPrice,
+            listPricePerGram: listPricePerGram,
           }),
         })
       })
 
       await Promise.all(savePromises)
-      setSuccessMessage('All seed costs saved successfully!')
+      setSuccessMessage('All costs saved successfully! Seed cost + Production cost + Markup = List Price')
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save costs')
@@ -237,11 +298,11 @@ export default function SeedCostingPage() {
           </div>
           
           <div className="flex gap-3">
-            <Link href="/suppliers"
+            <Link href="/trade-costing"
               className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
             >
               <Store className="h-4 w-4" />
-              Production Costs
+              Trade Costing
             </Link>
             <button
               onClick={exportToCSV}
@@ -291,18 +352,57 @@ export default function SeedCostingPage() {
           color="bg-blue-50 border-blue-200"
         />
         <StatCard 
-          title="Missing Prices" 
-          value={(stats.total - stats.withPrices).toString()} 
-          icon={<AlertCircle className="h-5 w-5 text-amber-500" />}
+          title="Production Cost" 
+          value={`R${calculateProductionCostPerTray().toFixed(2)}/tray`}
+          icon={<Store className="h-5 w-5 text-amber-500" />}
           color="bg-amber-50 border-amber-200"
         />
         <StatCard 
-          title="Avg Best Price" 
-          value={`R${stats.avgBestPrice.toFixed(2)}/g`}
-          icon={<DollarSign className="h-5 w-5 text-cyan-500" />}
-          color="bg-cyan-50 border-cyan-200"
+          title="Markup Rate" 
+          value={`${productionConfig.markupPercent}%`}
+          icon={<TrendingUp className="h-5 w-5 text-purple-500" />}
+          color="bg-purple-50 border-purple-200"
         />
       </div>
+
+      {/* Production Cost Breakdown */}
+      <Card title="Production Cost Breakdown" subtitle="Facility costs per tray (from Trade Costing)">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Tray</p>
+            <p className="font-bold text-gray-900">R{(productionConfig.trayCost / productionConfig.trayUses).toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Soil</p>
+            <p className="font-bold text-gray-900">R{((productionConfig.soilCostPerKg / 1000) * productionConfig.soilPerTrayGrams).toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Fabric</p>
+            <p className="font-bold text-gray-900">R{productionConfig.fabricPaperCost.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Water</p>
+            <p className="font-bold text-gray-900">R{productionConfig.waterCostPerTray.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Electricity</p>
+            <p className="font-bold text-gray-900">R{productionConfig.electricityCostPerTray.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Labor</p>
+            <p className="font-bold text-gray-900">R{productionConfig.laborCostPerTray.toFixed(2)}</p>
+          </div>
+        </div>
+        <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+          <div className="flex justify-between items-center">
+            <span className="font-medium text-indigo-900">Total Production Cost per Tray</span>
+            <span className="text-2xl font-bold text-indigo-700">R{calculateProductionCostPerTray().toFixed(2)}</span>
+          </div>
+          <p className="text-sm text-indigo-600 mt-1">
+            This cost is distributed across all microgreens based on yield per tray
+          </p>
+        </div>
+      </Card>
 
       {/* Filters */}
       <Card title="Filters">
