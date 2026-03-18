@@ -18,6 +18,7 @@ const microgreenSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    // Use request.nextUrl instead of constructing URL from request.url to avoid dynamic server usage
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
     const isActive = searchParams.get('isActive')

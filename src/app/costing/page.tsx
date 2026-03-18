@@ -72,11 +72,13 @@ export default function SeedCostingPage() {
 
   useEffect(() => {
     fetchData()
+    // Load production costs from API
     fetch('/api/production-costs')
       .then(res => res.json())
       .then(result => {
         if (result.data) {
           setProductionConfig({ ...defaultProductionConfig, ...result.data })
+          // Check if production costs were updated after our last save
           const configUpdatedAt = result.data.updatedAt ? new Date(result.data.updatedAt) : null
           const savedAt = localStorage.getItem('seedCostingLastSaved')
           if (configUpdatedAt && savedAt) {
@@ -97,6 +99,7 @@ export default function SeedCostingPage() {
       if (!response.ok) throw new Error('Failed to fetch microgreens')
       const result = await response.json()
 
+      // Initialize microgreen costs with empty prices
       const initializedMicrogreens: MicrogreenCost[] = (result.data || []).map((m: any) => ({
         ...m,
         prices: {
@@ -118,6 +121,7 @@ export default function SeedCostingPage() {
   const updatePrice = (microgreenId: string, field: 'price1' | 'price2' | 'price3', type: 'qty' | 'unitPrice', value: number) => {
     setMicrogreens(prev => prev.map(m => {
       if (m.id !== microgreenId) return m
+
       const updated = { ...m }
       const priceData = { ...updated.prices[field] }
       
@@ -127,12 +131,14 @@ export default function SeedCostingPage() {
         priceData.unitPrice = value
       }
       
+      // Recalculate cost per gram
       if (priceData.qty > 0 && priceData.unitPrice > 0) {
         priceData.costPerGram = priceData.unitPrice / priceData.qty
       }
       
       updated.prices = { ...updated.prices, [field]: priceData }
 
+      // Recalculate best price from all options
       const allPrices = [
         updated.prices.price1.costPerGram,
         updated.prices.price2.costPerGram,
@@ -178,7 +184,9 @@ export default function SeedCostingPage() {
 
       const savePromises = microgreens.map(async (m) => {
         if (m.bestPrice <= 0) return
+
         const listPricePerGram = calculateListPricePerGram(m)
+
         return fetch(`/api/microgreens/${m.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -194,8 +202,8 @@ export default function SeedCostingPage() {
       setLastSavedAt(now)
       localStorage.setItem('seedCostingLastSaved', now.toISOString())
       setShowRecalculateWarning(false)
-      setSuccessMessage('All costs saved!')
-      setTimeout(() => setSuccessMessage(null), 2000)
+      setSuccessMessage('All costs saved successfully! Seed + Production + Markup = List Price')
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save costs')
     } finally {
@@ -204,19 +212,24 @@ export default function SeedCostingPage() {
   }
 
   const recalculateAllPrices = () => {
+    // Force recalculation of all list prices with current production config
     setMicrogreens(prev => prev.map(m => ({
       ...m,
+      // Trigger a re-render by updating a property
       _recalculated: Date.now()
     })))
     setShowRecalculateWarning(false)
-    setSuccessMessage('Prices recalculated')
-    setTimeout(() => setSuccessMessage(null), 2000)
+    setSuccessMessage('All prices recalculated with current Trade Costing values')
+    setTimeout(() => setSuccessMessage(null), 3000)
   }
 
   const exportToCSV = () => {
-    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding', 'Yield', 'P1 Qty', 'P1 Unit', 'P1/g', 'P2 Qty', 'P2 Unit', 'P2/g', 'P3 Qty', 'P3 Unit', 'P3/g', 'Best R/g', 'List R/g']
+    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding Density', 'Yield/Tray', 'Price1 Qty', 'Price1 Unit Price', 'Price1 Cost/Gram', 'Price2 Qty', 'Price2 Unit Price', 'Price2 Cost/Gram', 'Price3 Qty', 'Price3 Unit Price', 'Price3 Cost/Gram', 'Best Price', 'Seed Cost/Tray', 'Total Cost/Gram', 'List Price/Gram']
     const rows = microgreens.map(m => {
+      const seedCost = calculateSeedCostPerTray(m)
+      const totalCostPerGram = calculateTotalCostPerGram(m)
       const listPricePerGram = calculateListPricePerGram(m)
+      
       return [
         m.name,
         m.variety || '',
@@ -224,16 +237,18 @@ export default function SeedCostingPage() {
         m.seedingDensity,
         m.yieldPerTray,
         m.prices.price1.qty,
-        m.prices.price1.unitPrice.toFixed(2),
-        m.prices.price1.costPerGram.toFixed(3),
+        m.prices.price1.unitPrice,
+        m.prices.price1.costPerGram.toFixed(4),
         m.prices.price2.qty,
-        m.prices.price2.unitPrice.toFixed(2),
-        m.prices.price2.costPerGram.toFixed(3),
+        m.prices.price2.unitPrice,
+        m.prices.price2.costPerGram.toFixed(4),
         m.prices.price3.qty,
-        m.prices.price3.unitPrice.toFixed(2),
-        m.prices.price3.costPerGram.toFixed(3),
-        m.bestPrice.toFixed(3),
-        listPricePerGram.toFixed(3),
+        m.prices.price3.unitPrice,
+        m.prices.price3.costPerGram.toFixed(4),
+        m.bestPrice.toFixed(4),
+        seedCost.toFixed(2),
+        totalCostPerGram.toFixed(4),
+        listPricePerGram.toFixed(4),
       ].join(',')
     })
 
@@ -262,266 +277,333 @@ export default function SeedCostingPage() {
     return <LoadingSpinner fullScreen />
   }
 
-  const prodCostPerTray = calculateProductionCostPerTray()
-
   return (
-    <div className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">Seed Costing</h1>
-          <p className="text-xs text-gray-500">{microgreens.length} microgreens • Enter supplier prices with quantity and unit price</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/trade-costing" className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-xs font-medium">
-            <Store className="h-3.5 w-3.5" />
-            Trade Costing
-          </Link>
-          <button onClick={exportToCSV} className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-xs font-medium">
-            <Download className="h-3.5 w-3.5" />
-            Export
-          </button>
-          <button onClick={saveCosts} disabled={isSaving} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 text-white rounded hover:bg-cyan-700 disabled:opacity-50 transition-colors text-xs font-medium">
-            {isSaving ? 'Saving...' : <><Save className="h-3.5 w-3.5" /> Save All</>}
-          </button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white/20 rounded-xl">
+              <Beaker className="h-8 w-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Seed Costing</h1>
+              <p className="text-cyan-100 mt-1">Enter seed prices • {microgreens.length} microgreens</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <Link href="/trade-costing"
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+            >
+              <Store className="h-4 w-4" />
+              Trade Costing
+            </Link>
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <button
+              onClick={saveCosts}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-cyan-600 rounded-lg text-sm font-medium hover:bg-cyan-50 disabled:opacity-50 transition-colors"
+            >
+              {isSaving ? 'Saving...' : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Save All
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Messages */}
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 flex items-center gap-2 text-xs">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <p className="text-green-800">{successMessage}</p>
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <p className="text-green-800 font-medium">{successMessage}</p>
         </div>
       )}
 
       {error && <ErrorMessage message={error} onRetry={fetchData} />}
 
+      {/* Recalculate Warning */}
       {showRecalculateWarning && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2 text-xs">
-          <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-amber-800 font-medium">Trade Costing updated</p>
-            <p className="text-amber-700 mt-0.5">List prices need recalculation</p>
-            <button onClick={recalculateAllPrices} className="mt-1 px-2 py-1 bg-amber-600 text-white rounded text-xs">Recalculate</button>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-amber-800 font-medium">
+                Trade Costing has been updated since you last saved prices
+              </p>
+              <p className="text-amber-700 text-sm mt-1">
+                Your list prices may be outdated. Recalculate to ensure accuracy.
+              </p>
+              <button
+                onClick={recalculateAllPrices}
+                className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+              >
+                Recalculate All Prices
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-3">
-        <div className="p-3 bg-white border border-gray-200 rounded-lg">
-          <div className="text-xs text-gray-500 mb-1">Total</div>
-          <div className="text-xl font-bold text-gray-900">{stats.total}</div>
-        </div>
-        <div className="p-3 bg-white border border-gray-200 rounded-lg">
-          <div className="text-xs text-gray-500 mb-1">With Prices</div>
-          <div className="text-xl font-bold text-blue-600">{stats.withPrices}</div>
-        </div>
-        <div className="p-3 bg-white border border-gray-200 rounded-lg">
-          <div className="text-xs text-gray-500 mb-1">Prod Cost/Tray</div>
-          <div className="text-xl font-bold text-amber-600">R{prodCostPerTray.toFixed(2)}</div>
-        </div>
-        <div className="p-3 bg-white border border-gray-200 rounded-lg">
-          <div className="text-xs text-gray-500 mb-1">Markup</div>
-          <div className="text-xl font-bold text-purple-600">{productionConfig.markupPercent}%</div>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatCard 
+          title="Total Microgreens" 
+          value={stats.total.toString()} 
+          icon={<Leaf className="h-5 w-5 text-green-500" />}
+          color="bg-green-50 border-green-200"
+        />
+        <StatCard 
+          title="With Prices Set" 
+          value={stats.withPrices.toString()} 
+          icon={<CheckCircle2 className="h-5 w-5 text-blue-500" />}
+          color="bg-blue-50 border-blue-200"
+        />
+        <StatCard 
+          title="Production Cost" 
+          value={`R${calculateProductionCostPerTray().toFixed(2)}/tray`}
+          icon={<Store className="h-5 w-5 text-amber-500" />}
+          color="bg-amber-50 border-amber-200"
+        />
+        <StatCard 
+          title="Markup Rate" 
+          value={`${productionConfig.markupPercent}%`}
+          icon={<DollarSign className="h-5 w-5 text-purple-500" />}
+          color="bg-purple-50 border-purple-200"
+        />
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-3">
-        <div className="text-xs font-medium text-gray-700 mb-2">Production Cost Breakdown</div>
-        <div className="grid grid-cols-6 gap-2">
-          {[
-            { label: 'Tray', value: (prodCostPerTray / 6).toFixed(2) },
-            { label: 'Soil', value: ((productionConfig.soilCostPerKg / 1000) * productionConfig.soilPerTrayGrams).toFixed(2) },
-            { label: 'Fabric', value: productionConfig.fabricPaperCost.toFixed(2) },
-            { label: 'Water', value: productionConfig.waterCostPerTray.toFixed(2) },
-            { label: 'Power', value: productionConfig.electricityCostPerTray.toFixed(2) },
-            { label: 'Labor', value: productionConfig.laborCostPerTray.toFixed(2) },
-          ].map((item, i) => (
-            <div key={i} className="text-center p-2 bg-gray-50 rounded">
-              <div className="text-[10px] text-gray-500">{item.label}</div>
-              <div className="text-xs font-bold text-gray-900">R{item.value}</div>
-            </div>
-          ))}
+      {/* Production Cost Breakdown */}
+      <Card title="Production Cost Breakdown" subtitle="Facility costs per tray (from Trade Costing)">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Tray</p>
+            <p className="font-bold text-gray-900">R{(productionConfig.trayCost / productionConfig.trayUses).toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Soil</p>
+            <p className="font-bold text-gray-900">R{((productionConfig.soilCostPerKg / 1000) * productionConfig.soilPerTrayGrams).toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Fabric</p>
+            <p className="font-bold text-gray-900">R{productionConfig.fabricPaperCost.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Water</p>
+            <p className="font-bold text-gray-900">R{productionConfig.waterCostPerTray.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Electricity</p>
+            <p className="font-bold text-gray-900">R{productionConfig.electricityCostPerTray.toFixed(2)}</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Labor</p>
+            <p className="font-bold text-gray-900">R{productionConfig.laborCostPerTray.toFixed(2)}</p>
+          </div>
         </div>
-      </div>
+        <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+          <div className="flex justify-between items-center">
+            <span className="font-medium text-indigo-900">Total Production Cost per Tray</span>
+            <span className="text-2xl font-bold text-indigo-700">R{calculateProductionCostPerTray().toFixed(2)}</span>
+          </div>
+          <p className="text-sm text-indigo-600 mt-1">
+            This cost is distributed across all microgreens based on yield per tray
+          </p>
+        </div>
+      </Card>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-3">
-        <div className="flex gap-3 items-center mb-0">
+      {/* Filters */}
+      <Card title="Filters">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search microgreens..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-cyan-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
             />
           </div>
-          <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+          
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={showOnlyIncomplete}
               onChange={(e) => setShowOnlyIncomplete(e.target.checked)}
-              className="rounded border-gray-300 text-cyan-600"
+              className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
             />
-            Missing prices only
+            <span className="text-sm text-gray-700">Show only incomplete</span>
           </label>
         </div>
-      </div>
+      </Card>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* Prices Table */}
+      <Card 
+        title="Seed Price Comparison" 
+        subtitle={`Enter up to 3 seed prices per microgreen. Best price auto-selected.`}
+      >
         <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="py-2 px-3 text-left text-[10px] font-bold text-gray-600 uppercase sticky left-0 bg-gray-50 z-10 w-64">Microgreen</th>
-                <th className="py-2 px-2 text-center text-[10px] font-bold text-gray-600 uppercase w-16">Code</th>
-                <th className="py-2 px-2 text-center text-[10px] font-bold text-gray-600 uppercase w-12">Seed</th>
-                <th className="py-2 px-2 text-center text-[10px] font-bold text-gray-600 uppercase w-12">Yield</th>
-                <th className="py-1 px-1 text-center text-[10px] font-bold text-blue-700 uppercase bg-blue-50/50 w-24">P1</th>
-                <th className="py-1 px-1 text-center text-[10px] font-bold text-green-700 uppercase bg-green-50/50 w-24">P2</th>
-                <th className="py-1 px-1 text-center text-[10px] font-bold text-purple-700 uppercase bg-purple-50/50 w-24">P3</th>
-                <th className="py-2 px-2 text-center text-[10px] font-bold text-emerald-700 uppercase bg-emerald-50 w-16">Best</th>
-                <th className="py-2 px-2 text-right text-[10px] font-bold text-cyan-700 uppercase w-16">List</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase sticky left-0 bg-gray-50 z-10">Microgreen</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Seed Code</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Seeding</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Yield</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-blue-50">Price 1</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-green-50">Price 2</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-purple-50">Price 3</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-white uppercase bg-emerald-600">Best Price</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">List Price/Gram</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredMicrogreens.map((m) => {
                 const listPricePerGram = calculateListPricePerGram(m)
                 const hasBestPrice = m.bestPrice > 0
-                const bestPriceIndex = [
-                  m.prices.price1.costPerGram,
-                  m.prices.price2.costPerGram,
-                  m.prices.price3.costPerGram,
-                ].findIndex(p => p > 0 && p === m.bestPrice)
 
                 return (
-                  <tr key={m.id} className="hover:bg-gray-50/50">
-                    <td className="py-2 px-3 sticky left-0 bg-white z-10">
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded bg-green-100 flex items-center justify-center flex-shrink-0">
-                          <Leaf className="h-2.5 w-2.5 text-green-600" />
+                  <tr key={m.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 sticky left-0 bg-white z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                          <Leaf className="h-4 w-4 text-green-600" />
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-medium text-gray-900 text-xs truncate">{m.name}</div>
-                          {m.variety && <div className="text-[10px] text-gray-500 truncate">{m.variety}</div>}
+                        <div>
+                          <div className="font-medium text-gray-900">{m.name}</div>
+                          {m.variety && <div className="text-xs text-gray-500">{m.variety}</div>}
                         </div>
                       </div>
                     </td>
                     
-                    <td className="py-2 px-2 text-center">
-                      <span className="text-[10px] text-gray-500 font-mono truncate block max-w-[60px]">{m.seedCode}</span>
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 font-mono">{m.seedCode}</td>
                     
-                    <td className="py-2 px-2 text-center">
-                      <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
-                        {m.seedingDensity}
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        {m.seedingDensity}g
                       </span>
                     </td>
                     
-                    <td className="py-2 px-2 text-center">
-                      <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
-                        {m.yieldPerTray}
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {m.yieldPerTray}g
                       </span>
                     </td>
                     
-                    <td className={`py-1 px-1 ${bestPriceIndex === 0 ? 'bg-blue-50' : ''}`}>
-                      <div className="flex items-center gap-0.5 text-[10px] leading-none">
-                        <input
-                          type="number"
-                          value={m.prices.price1.qty || ''}
-                          onChange={(e) => updatePrice(m.id, 'price1', 'qty', parseFloat(e.target.value) || 0)}
-                          placeholder="100"
-                          className="w-8 px-0.5 py-0.5 text-[9px] border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                        />
-                        <span className="text-gray-400 text-[8px]">@</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={m.prices.price1.unitPrice || ''}
-                          onChange={(e) => updatePrice(m.id, 'price1', 'unitPrice', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          className="w-9 px-0.5 py-0.5 text-[9px] border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-                      {m.prices.price1.costPerGram > 0 && (
-                        <div className="text-[9px] mt-0.5">
-                          <span className={bestPriceIndex === 0 ? 'text-blue-700 font-bold' : 'text-gray-500'}>
-                            {m.prices.price1.costPerGram.toFixed(3)}
-                          </span>
+                    {/* Price 1 */}
+                    <td className="px-2 py-3 bg-blue-50/50">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={m.prices.price1.qty || ''}
+                            onChange={(e) => updatePrice(m.id, 'price1', 'qty', parseFloat(e.target.value) || 0)}
+                            placeholder="Qty"
+                            className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                          <span className="text-xs text-gray-500">g @ R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.prices.price1.unitPrice || ''}
+                            onChange={(e) => updatePrice(m.id, 'price1', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
                         </div>
-                      )}
+                        {m.prices.price1.costPerGram > 0 && (
+                          <div className="text-xs text-blue-600 font-medium">
+                            R{m.prices.price1.costPerGram.toFixed(3)}/g
+                          </div>
+                        )}
+                      </div>
                     </td>
                     
-                    <td className={`py-1 px-1 ${bestPriceIndex === 1 ? 'bg-green-50' : ''}`}>
-                      <div className="flex items-center gap-0.5 text-[10px] leading-none">
-                        <input
-                          type="number"
-                          value={m.prices.price2.qty || ''}
-                          onChange={(e) => updatePrice(m.id, 'price2', 'qty', parseFloat(e.target.value) || 0)}
-                          placeholder="100"
-                          className="w-8 px-0.5 py-0.5 text-[9px] border border-gray-300 rounded focus:outline-none focus:border-green-500"
-                        />
-                        <span className="text-gray-400 text-[8px]">@</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={m.prices.price2.unitPrice || ''}
-                          onChange={(e) => updatePrice(m.id, 'price2', 'unitPrice', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          className="w-9 px-0.5 py-0.5 text-[9px] border border-gray-300 rounded focus:outline-none focus:border-green-500"
-                        />
-                      </div>
-                      {m.prices.price2.costPerGram > 0 && (
-                        <div className="text-[9px] mt-0.5">
-                          <span className={bestPriceIndex === 1 ? 'text-green-700 font-bold' : 'text-gray-500'}>
-                            {m.prices.price2.costPerGram.toFixed(3)}
-                          </span>
+                    {/* Price 2 */}
+                    <td className="px-2 py-3 bg-green-50/50">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={m.prices.price2.qty || ''}
+                            onChange={(e) => updatePrice(m.id, 'price2', 'qty', parseFloat(e.target.value) || 0)}
+                            placeholder="Qty"
+                            className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                          <span className="text-xs text-gray-500">g @ R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.prices.price2.unitPrice || ''}
+                            onChange={(e) => updatePrice(m.id, 'price2', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
                         </div>
-                      )}
+                        {m.prices.price2.costPerGram > 0 && (
+                          <div className="text-xs text-green-600 font-medium">
+                            R{m.prices.price2.costPerGram.toFixed(3)}/g
+                          </div>
+                        )}
+                      </div>
                     </td>
                     
-                    <td className={`py-1 px-1 ${bestPriceIndex === 2 ? 'bg-purple-50' : ''}`}>
-                      <div className="flex items-center gap-0.5 text-[10px] leading-none">
-                        <input
-                          type="number"
-                          value={m.prices.price3.qty || ''}
-                          onChange={(e) => updatePrice(m.id, 'price3', 'qty', parseFloat(e.target.value) || 0)}
-                          placeholder="100"
-                          className="w-8 px-0.5 py-0.5 text-[9px] border border-gray-300 rounded focus:outline-none focus:border-purple-500"
-                        />
-                        <span className="text-gray-400 text-[8px]">@</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={m.prices.price3.unitPrice || ''}
-                          onChange={(e) => updatePrice(m.id, 'price3', 'unitPrice', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          className="w-9 px-0.5 py-0.5 text-[9px] border border-gray-300 rounded focus:outline-none focus:border-purple-500"
-                        />
-                      </div>
-                      {m.prices.price3.costPerGram > 0 && (
-                        <div className="text-[9px] mt-0.5">
-                          <span className={bestPriceIndex === 2 ? 'text-purple-700 font-bold' : 'text-gray-500'}>
-                            {m.prices.price3.costPerGram.toFixed(3)}
-                          </span>
+                    {/* Price 3 */}
+                    <td className="px-2 py-3 bg-purple-50/50">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={m.prices.price3.qty || ''}
+                            onChange={(e) => updatePrice(m.id, 'price3', 'qty', parseFloat(e.target.value) || 0)}
+                            placeholder="Qty"
+                            className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                          <span className="text-xs text-gray-500">g @ R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.prices.price3.unitPrice || ''}
+                            onChange={(e) => updatePrice(m.id, 'price3', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
                         </div>
-                      )}
+                        {m.prices.price3.costPerGram > 0 && (
+                          <div className="text-xs text-purple-600 font-medium">
+                            R{m.prices.price3.costPerGram.toFixed(3)}/g
+                          </div>
+                        )}
+                      </div>
                     </td>
                     
-                    <td className="py-2 px-2 text-center">
+                    {/* Best Price */}
+                    <td className="px-4 py-3 text-center bg-emerald-50">
                       {hasBestPrice ? (
-                        <span className="text-xs font-bold text-emerald-700">{m.bestPrice.toFixed(3)}</span>
+                        <div className="inline-flex flex-col items-center">
+                          <span className="text-lg font-bold text-emerald-700">R{m.bestPrice.toFixed(2)}</span>
+                          <span className="text-xs text-emerald-600">per gram</span>
+                        </div>
                       ) : (
-                        <span className="text-xs text-gray-400">-</span>
+                        <span className="text-sm text-gray-400 italic">No prices</span>
                       )}
                     </td>
                     
-                    <td className="py-2 px-2 text-right">
-                      {hasBestPrice ? (
-                        <span className="text-xs font-medium text-cyan-700">{listPricePerGram.toFixed(3)}</span>
-                      ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                      )}
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-sm font-bold text-cyan-700">
+                        {hasBestPrice ? `R${listPricePerGram.toFixed(4)}` : '-'}
+                      </span>
                     </td>
                   </tr>
                 )
@@ -531,10 +613,25 @@ export default function SeedCostingPage() {
         </div>
         
         {filteredMicrogreens.length === 0 && (
-          <div className="text-center py-6 text-gray-500 text-xs">
-            No microgreens match your filter
+          <div className="text-center py-12">
+            <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No microgreens found matching your search.</p>
           </div>
         )}
+      </Card>
+    </div>
+  )
+}
+
+function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) {
+  return (
+    <div className={`p-4 rounded-xl border shadow-sm ${color}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium text-gray-600">{title}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{value}</div>
+        </div>
+        <div className="p-2 bg-white rounded-lg shadow-sm">{icon}</div>
       </div>
     </div>
   )
