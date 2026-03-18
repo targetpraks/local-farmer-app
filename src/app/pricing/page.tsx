@@ -1,15 +1,11 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Leaf, Package, Store, Building2, UtensilsCrossed, ShoppingCart, TrendingUp, Calculator, Sparkles, ArrowRight } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
-import { LoadingSpinner } from '@/components/LoadingSpinner'
-import { ErrorMessage } from '@/components/ErrorMessage'
-import { Microgreen, CustomerTier } from '@/types'
 
 const PACK_SIZES = [
   { name: 'Small', grams: 100, packaging: 'Polypack 155x225mm' },
@@ -17,56 +13,32 @@ const PACK_SIZES = [
   { name: 'Large', grams: 500, packaging: 'Polypack 300x400mm' },
 ]
 
-const DEFAULT_TIER_MARKUPS = {
+const DEFAULT_TIER_MARKUPS: Record<string, number> = {
   retail: 0,
   wholesale: -20,
   restaurant: -10,
 }
 
 export default function PricingPage() {
-  const [microgreens, setMicrogreens] = useState<Microgreen[]>([])
-  const [customerTiers, setCustomerTiers] = useState<CustomerTier[]>([])
+  const [microgreens, setMicrogreens] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
-  const [selectedTier, setSelectedTier] = useState<'retail' | 'wholesale' | 'restaurant'>('retail')
+  const [selectedTier, setSelectedTier] = useState('retail')
   const [packagingType, setPackagingType] = useState('retail')
   const [selectedPackSize, setSelectedPackSize] = useState(100)
 
   useEffect(() => {
-    fetchData()
+    fetch('/api/microgreens?limit=100')
+      .then(res => res.json())
+      .then(result => {
+        setMicrogreens(result.data || [])
+        setIsLoading(false)
+      })
+      .catch(() => setIsLoading(false))
   }, [])
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [microgreensRes, tiersRes] = await Promise.all([
-        fetch('/api/microgreens?limit=100'),
-        fetch('/api/pricing/tiers'),
-      ])
-
-      if (!microgreensRes.ok) throw new Error('Failed to fetch microgreens')
-      if (!tiersRes.ok) throw new Error('Failed to fetch customer tiers')
-
-      const [microgreensData, tiersData] = await Promise.all([
-        microgreensRes.json(),
-        tiersRes.json(),
-      ])
-
-      setMicrogreens(microgreensData.data || [])
-      setCustomerTiers(tiersData.data || [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const calculatePricePerGram = (listPricePerGram: number | null | undefined) => {
+  const calculatePricePerGram = (listPricePerGram: number) => {
     if (!listPricePerGram) return 0
-    
     const tierAdjustment = DEFAULT_TIER_MARKUPS[selectedTier] / 100
-    
     return listPricePerGram * (1 + tierAdjustment)
   }
 
@@ -80,14 +52,12 @@ export default function PricingPage() {
 
   const getLabelCost = () => 0.5
 
-  const calculatePackPrice = (microgreen: Microgreen) => {
+  const calculatePackPrice = (microgreen: { listPricePerGram?: number }) => {
     const listPricePerGram = microgreen.listPricePerGram || 0
     const pricePerGram = calculatePricePerGram(listPricePerGram)
-    
     const gramsPrice = pricePerGram * selectedPackSize
     const packagingCost = getPackagingCost()
     const labelCost = getLabelCost()
-    
     return gramsPrice + packagingCost + labelCost
   }
 
@@ -100,40 +70,28 @@ export default function PricingPage() {
     }
   }
 
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'retail': return 'bg-blue-600 text-white'
-      case 'wholesale': return 'bg-green-600 text-white'
-      case 'restaurant': return 'bg-purple-600 text-white'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
   if (isLoading) {
-    return <LoadingSpinner fullScreen />
+    return (
+      <div className="p-6">
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-lg mb-6">
+          <h1 className="text-3xl font-bold">Pricing Calculator</h1>
+        </div>
+        <div className="text-center py-12">Loading pricing data...</div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center gap-3">
           <Sparkles className="h-8 w-8 text-yellow-300" />
           <div>
             <h1 className="text-3xl font-bold">Pricing Calculator</h1>
-            <p className="text-green-100 mt-1">Uses list prices from costing page</p>
+            <p className="text-green-100 mt-1">Set your prices with confidence</p>
           </div>
         </div>
-        
-        <div className="flex gap-3 mt-4">
-          <Link href="/costing" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
-            <Calculator className="h-4 w-4" />
-            Update List Prices
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
       </div>
-
-      {error && <ErrorMessage message={error} onRetry={fetchData} />}
 
       <Card title="Pricing Controls" subtitle="Customize your pricing">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -143,23 +101,20 @@ export default function PricingPage() {
               Customer Tier
             </label>
             <div className="flex rounded-lg bg-white shadow-sm p-1 border border-blue-200">
-              {(['retail', 'wholesale', 'restaurant'] as const).map((tier) => (
+              {['retail', 'wholesale', 'restaurant'].map((tier) => (
                 <button
                   key={tier}
                   onClick={() => setSelectedTier(tier)}
                   className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                    selectedTier === tier ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                    selectedTier === tier
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                   }`}
                 >
                   {getTierIcon(tier)}
                   <span className="ml-1.5 capitalize">{tier}</span>
                 </button>
               ))}
-            </div>
-            <div className="mt-2 text-xs text-blue-600">
-              {selectedTier === 'retail' && 'List price as calculated'}
-              {selectedTier === 'wholesale' && '20% discount from list'}
-              {selectedTier === 'restaurant' && '10% discount from list'}
             </div>
           </div>
 
@@ -172,7 +127,9 @@ export default function PricingPage() {
               <button
                 onClick={() => setPackagingType('retail')}
                 className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                  packagingType === 'retail' ? 'bg-amber-500 text-white shadow-md' : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
+                  packagingType === 'retail'
+                    ? 'bg-amber-500 text-white shadow-md'
+                    : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
                 }`}
               >
                 <ShoppingCart className="h-4 w-4 mr-1.5" />
@@ -181,15 +138,14 @@ export default function PricingPage() {
               <button
                 onClick={() => setPackagingType('wholesale')}
                 className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                  packagingType === 'wholesale' ? 'bg-amber-500 text-white shadow-md' : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
+                  packagingType === 'wholesale'
+                    ? 'bg-amber-500 text-white shadow-md'
+                    : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
                 }`}
               >
                 <Package className="h-4 w-4 mr-1.5" />
                 Wholesale
               </button>
-            </div>
-            <div className="mt-2 text-xs text-amber-700">
-              {packagingType === 'retail' ? 'Clamshell packaging' : 'Polypack packaging'}
             </div>
           </div>
 
@@ -204,21 +160,23 @@ export default function PricingPage() {
                   key={size.grams}
                   onClick={() => setSelectedPackSize(size.grams)}
                   className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                    selectedPackSize === size.grams ? 'bg-purple-600 text-white shadow-md' : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                    selectedPackSize === size.grams
+                      ? 'bg-purple-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                   }`}
                 >
                   {size.grams}g
                 </button>
               ))}
             </div>
-            <div className="mt-2 text-xs text-purple-700">
-              {PACK_SIZES.find(s => s.grams === selectedPackSize)?.packaging}
-            </div>
           </div>
         </div>
       </Card>
 
-      <Card title={`${selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)} Pricing`} subtitle={`${selectedPackSize}g ${packagingType} packs`}>
+      <Card 
+        title={`${selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)} Pricing`}
+        subtitle={`${selectedPackSize}g ${packagingType} packs`}
+      >
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -227,7 +185,9 @@ export default function PricingPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Seed Code</th>
                 <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">List Price/Gram</th>
                 <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Tier Price/Gram</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase bg-green-500">{selectedPackSize}g Pack</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase bg-green-500">
+                  {selectedPackSize}g Pack
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -312,16 +272,16 @@ export default function PricingPage() {
           title="Current Tier" 
           value={selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}
           icon={getTierIcon(selectedTier)}
-          color={getTierColor(selectedTier)}
+          color="bg-blue-100 text-blue-800 border-blue-200"
         />
       </div>
     </div>
   )
 }
 
-function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color?: string }) {
+function StatCard({ title, value, icon, color }: { title: string; value: string | number; icon: React.ReactNode; color: string }) {
   return (
-    <div className={`p-4 rounded-xl border shadow-sm ${color || 'bg-white border-gray-200'}`}>
+    <div className={`p-4 rounded-xl border shadow-sm ${color}`}>
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-medium text-gray-600">{title}</div>
