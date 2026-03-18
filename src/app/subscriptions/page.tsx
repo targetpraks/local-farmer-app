@@ -21,7 +21,7 @@ export default function SubscriptionsPage() {
   const [selectedDuration, setSelectedDuration] = useState(DURATION_DISCOUNTS[0])
 
   useEffect(() => {
-    fetch('/api/microgreens')
+    fetch('/api/microgreens?limit=100')
       .then(res => res.json())
       .then(result => setMicrogreens(result.data || []))
     

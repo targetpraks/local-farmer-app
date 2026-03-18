@@ -41,7 +41,7 @@ export default function PricingPage() {
     try {
       setIsLoading(true)
       const [microgreensRes, tiersRes] = await Promise.all([
-        fetch('/api/microgreens'),
+        fetch('/api/microgreens?limit=100'),
         fetch('/api/pricing/tiers'),
       ])
 

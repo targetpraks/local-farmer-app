@@ -30,7 +30,7 @@ export default function MicrogreensPage() {
   const fetchMicrogreens = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/microgreens')
+      const response = await fetch('/api/microgreens?limit=100')
       if (!response.ok) throw new Error('Failed to fetch microgreens')
       const result = await response.json()
       setMicrogreens(result.data || [])
