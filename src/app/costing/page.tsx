@@ -26,9 +26,9 @@ interface MicrogreenCost {
   seedingDensity: number
   yieldPerTray: number
   prices: {
-    price1: number
-    price2: number
-    price3: number
+    price1: { qty: number; unitPrice: number; costPerGram: number }
+    price2: { qty: number; unitPrice: number; costPerGram: number }
+    price3: { qty: number; unitPrice: number; costPerGram: number }
   }
   bestPrice: number
 }
@@ -103,9 +103,9 @@ export default function SeedCostingPage() {
       const initializedMicrogreens: MicrogreenCost[] = (result.data || []).map((m: any) => ({
         ...m,
         prices: {
-          price1: m.defaultSeedCostPerGram || 0,
-          price2: 0,
-          price3: 0,
+          price1: { qty: 100, unitPrice: m.defaultSeedCostPerGram || 0, costPerGram: m.defaultSeedCostPerGram || 0 },
+          price2: { qty: 100, unitPrice: 0, costPerGram: 0 },
+          price3: { qty: 100, unitPrice: 0, costPerGram: 0 },
         },
         bestPrice: m.defaultSeedCostPerGram || 0,
       }))
@@ -118,22 +118,35 @@ export default function SeedCostingPage() {
     }
   }
 
-  const updatePrice = (microgreenId: string, field: 'price1' | 'price2' | 'price3', value: number) => {
+  const updatePrice = (microgreenId: string, field: 'price1' | 'price2' | 'price3', type: 'qty' | 'unitPrice', value: number) => {
     setMicrogreens(prev => prev.map(m => {
       if (m.id !== microgreenId) return m
 
       const updated = { ...m }
-      updated.prices = { ...updated.prices, [field]: value }
+      const priceData = { ...updated.prices[field] }
+      
+      if (type === 'qty') {
+        priceData.qty = value
+      } else {
+        priceData.unitPrice = value
+      }
+      
+      // Recalculate cost per gram
+      if (priceData.qty > 0 && priceData.unitPrice > 0) {
+        priceData.costPerGram = priceData.unitPrice / priceData.qty
+      }
+      
+      updated.prices = { ...updated.prices, [field]: priceData }
 
-      // Recalculate best price
-      const prices = [
-        updated.prices.price1,
-        updated.prices.price2,
-        updated.prices.price3,
+      // Recalculate best price from all options
+      const allPrices = [
+        updated.prices.price1.costPerGram,
+        updated.prices.price2.costPerGram,
+        updated.prices.price3.costPerGram,
       ].filter(p => p > 0)
 
-      if (prices.length > 0) {
-        updated.bestPrice = Math.min(...prices)
+      if (allPrices.length > 0) {
+        updated.bestPrice = Math.min(...allPrices)
       }
 
       return updated
@@ -211,7 +224,7 @@ export default function SeedCostingPage() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding Density', 'Yield/Tray', 'Price 1', 'Price 2', 'Price 3', 'Best Price', 'Seed Cost/Tray', 'Total Cost/Gram', 'List Price/Gram']
+    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding Density', 'Yield/Tray', 'Price1 Qty', 'Price1 Unit Price', 'Price1 Cost/Gram', 'Price2 Qty', 'Price2 Unit Price', 'Price2 Cost/Gram', 'Price3 Qty', 'Price3 Unit Price', 'Price3 Cost/Gram', 'Best Price', 'Seed Cost/Tray', 'Total Cost/Gram', 'List Price/Gram']
     const rows = microgreens.map(m => {
       const seedCost = calculateSeedCostPerTray(m)
       const totalCostPerGram = calculateTotalCostPerGram(m)
@@ -223,10 +236,16 @@ export default function SeedCostingPage() {
         m.seedCode,
         m.seedingDensity,
         m.yieldPerTray,
-        m.prices.price1 || '',
-        m.prices.price2 || '',
-        m.prices.price3 || '',
-        m.bestPrice.toFixed(2),
+        m.prices.price1.qty,
+        m.prices.price1.unitPrice,
+        m.prices.price1.costPerGram.toFixed(4),
+        m.prices.price2.qty,
+        m.prices.price2.unitPrice,
+        m.prices.price2.costPerGram.toFixed(4),
+        m.prices.price3.qty,
+        m.prices.price3.unitPrice,
+        m.prices.price3.costPerGram.toFixed(4),
+        m.bestPrice.toFixed(4),
         seedCost.toFixed(2),
         totalCostPerGram.toFixed(4),
         listPricePerGram.toFixed(4),
@@ -484,49 +503,88 @@ export default function SeedCostingPage() {
                     
                     {/* Price 1 */}
                     <td className="px-2 py-3 bg-blue-50/50">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500">R</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={m.prices.price1 || ''}
-                          onChange={(e) => updatePrice(m.id, 'price1', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
-                        />
-                        <span className="text-xs text-gray-500">/g</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={m.prices.price1.qty || ''}
+                            onChange={(e) => updatePrice(m.id, 'price1', 'qty', parseFloat(e.target.value) || 0)}
+                            placeholder="Qty"
+                            className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                          <span className="text-xs text-gray-500">g @ R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.prices.price1.unitPrice || ''}
+                            onChange={(e) => updatePrice(m.id, 'price1', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                        </div>
+                        {m.prices.price1.costPerGram > 0 && (
+                          <div className="text-xs text-blue-600 font-medium">
+                            R{m.prices.price1.costPerGram.toFixed(3)}/g
+                          </div>
+                        )}
                       </div>
                     </td>
                     
                     {/* Price 2 */}
                     <td className="px-2 py-3 bg-green-50/50">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500">R</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={m.prices.price2 || ''}
-                          onChange={(e) => updatePrice(m.id, 'price2', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
-                        />
-                        <span className="text-xs text-gray-500">/g</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={m.prices.price2.qty || ''}
+                            onChange={(e) => updatePrice(m.id, 'price2', 'qty', parseFloat(e.target.value) || 0)}
+                            placeholder="Qty"
+                            className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                          <span className="text-xs text-gray-500">g @ R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.prices.price2.unitPrice || ''}
+                            onChange={(e) => updatePrice(m.id, 'price2', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                        </div>
+                        {m.prices.price2.costPerGram > 0 && (
+                          <div className="text-xs text-green-600 font-medium">
+                            R{m.prices.price2.costPerGram.toFixed(3)}/g
+                          </div>
+                        )}
                       </div>
                     </td>
                     
                     {/* Price 3 */}
                     <td className="px-2 py-3 bg-purple-50/50">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500">R</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={m.prices.price3 || ''}
-                          onChange={(e) => updatePrice(m.id, 'price3', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
-                        />
-                        <span className="text-xs text-gray-500">/g</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={m.prices.price3.qty || ''}
+                            onChange={(e) => updatePrice(m.id, 'price3', 'qty', parseFloat(e.target.value) || 0)}
+                            placeholder="Qty"
+                            className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                          <span className="text-xs text-gray-500">g @ R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.prices.price3.unitPrice || ''}
+                            onChange={(e) => updatePrice(m.id, 'price3', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
+                          />
+                        </div>
+                        {m.prices.price3.costPerGram > 0 && (
+                          <div className="text-xs text-purple-600 font-medium">
+                            R{m.prices.price3.costPerGram.toFixed(3)}/g
+                          </div>
+                        )}
                       </div>
                     </td>
                     
