@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   ChevronUp, 
   ChevronDown, 
@@ -10,24 +10,23 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Loader2
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
-export interface Column<T> {
-  key: keyof T | string
+export interface Column {
+  key: string
   header: string
   sortable?: boolean
-  render?: (row: T) => React.ReactNode
+  render?: (row: any) => React.ReactNode
   width?: string
 }
 
-export interface DataTableProps<T> {
-  columns: Column<T>[]
-  data: T[]
-  keyExtractor: (row: T) => string
+export interface DataTableProps {
+  columns: Column[]
+  data: any[]
+  keyExtractor: (row: any) => string
   searchable?: boolean
-  searchKeys?: (keyof T)[]
+  searchKeys?: string[]
   filterable?: boolean
   filters?: { key: string; label: string; options: string[] }[]
   pagination?: {
@@ -36,14 +35,14 @@ export interface DataTableProps<T> {
     total: number
     onPageChange: (page: number) => void
   }
-  onRowClick?: (row: T) => void
+  onRowClick?: (row: any) => void
   emptyMessage?: string
   isLoading?: boolean
   exportable?: boolean
   title?: string
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable({
   columns,
   data,
   keyExtractor,
@@ -57,8 +56,8 @@ export function DataTable<T extends Record<string, unknown>>({
   isLoading,
   exportable,
   title,
-}: DataTableProps<T>) {
-  const [sortConfig, setSortConfig] = useState<{ key: keyof T | string; direction: 'asc' | 'desc' } | null>(null)
+}: DataTableProps) {
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({})
@@ -70,7 +69,7 @@ export function DataTable<T extends Record<string, unknown>>({
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  const handleSort = (key: keyof T | string) => {
+  const handleSort = (key: string) => {
     if (sortConfig?.key === key) {
       setSortConfig({
         key,
@@ -85,7 +84,7 @@ export function DataTable<T extends Record<string, unknown>>({
     const headers = columns.map(c => c.header).join(',')
     const rows = data.map(row => 
       columns.map(c => {
-        const value = row[c.key as string]
+        const value = row[c.key]
         return value != null ? String(value) : ''
       }).join(',')
     ).join('\n')
@@ -106,7 +105,7 @@ export function DataTable<T extends Record<string, unknown>>({
   }
 
   // Filter and search data
-  let filteredData = data
+  let filteredData = [...data]
 
   if (debouncedSearch && searchKeys) {
     filteredData = filteredData.filter((row) =>
@@ -205,7 +204,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
           <div className="flex items-center gap-2">
             {/* Filter Toggle */}
-            {filterable && filters && (
+            {filterable && filters && filters.length > 0 && (
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={cn(

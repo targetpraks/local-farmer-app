@@ -2,18 +2,49 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Leaf, Package, Zap, Users, Beaker, Droplets, Grid3X3, Calculator, Save, TrendingUp, Percent, ArrowRight, Tag } from 'lucide-react'
+import { 
+  TrendingUp, 
+  Save, 
+  Calculator, 
+  Package, 
+  DollarSign, 
+  Store,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  Leaf,
+  Search,
+  Filter,
+  Download
+} from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
+import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
-import { Microgreen, Supplier } from '@/types'
+import { Tooltip } from '@/components/Tooltip'
 
-// Fixed production parameters
-const TRAY_USES = 1000
-const SOIL_PER_TRAY_GRAMS = 500
+interface Supplier {
+  id: string
+  name: string
+}
+
+interface MicrogreenCost {
+  id: string
+  name: string
+  variety?: string
+  seedCode: string
+  seedingDensity: number
+  yieldPerTray: number
+  currentSeedCost: number
+  supplierPrices: {
+    supplier1: { supplierId: string; price: number }
+    supplier2: { supplierId: string; price: number }
+    supplier3: { supplierId: string; price: number }
+  }
+  bestPrice: number
+  bestSupplierId: string | null
+}
 
 interface CostConfig {
   trayCost: number
@@ -27,32 +58,12 @@ interface CostConfig {
   markupPercent: number
 }
 
-interface CostCalculation {
-  microgreenId: string
-  microgreenName: string
-  variety?: string
-  seedingDensity: number
-  yieldPerTray: number
-  seedCostPerGram: number
-  trayAmortizedCost: number
-  soilCost: number
-  fabricPaperCost: number
-  waterCost: number
-  electricityCost: number
-  laborCost: number
-  seedCost: number
-  totalCostPerTray: number
-  costPerGram: number
-  markupPercent: number
-  listPricePerGram: number
-}
-
 const defaultCostConfig: CostConfig = {
   trayCost: 50,
-  trayUses: TRAY_USES,
+  trayUses: 1000,
   fabricPaperCost: 2,
   soilCostPerKg: 15,
-  soilPerTrayGrams: SOIL_PER_TRAY_GRAMS,
+  soilPerTrayGrams: 500,
   waterCostPerTray: 1,
   electricityCostPerTray: 2,
   laborCostPerTray: 5,
@@ -60,14 +71,15 @@ const defaultCostConfig: CostConfig = {
 }
 
 export default function CostingPage() {
-  const [activeTab, setActiveTab] = useState<'config' | 'calculator'>('config')
-  const [microgreens, setMicrogreens] = useState<Microgreen[]>([])
+  const [microgreens, setMicrogreens] = useState<MicrogreenCost[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [costConfig, setCostConfig] = useState<CostConfig>(defaultCostConfig)
-  const [selectedMicrogreenId, setSelectedMicrogreenId] = useState('')
-  const [calculation, setCalculation] = useState<CostCalculation | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -75,11 +87,7 @@ export default function CostingPage() {
     if (savedConfig) {
       try {
         const parsed = JSON.parse(savedConfig)
-        setCostConfig({
-          ...defaultCostConfig,
-          ...parsed,
-          markupPercent: parsed.markupPercent || parsed.marginPercent || 100,
-        })
+        setCostConfig({ ...defaultCostConfig, ...parsed })
       } catch (e) {
         console.error('Failed to load saved config:', e)
       }
@@ -90,7 +98,7 @@ export default function CostingPage() {
     try {
       setIsLoading(true)
       const [microgreensRes, suppliersRes] = await Promise.all([
-        fetch('/api/microgreens?limit=100'),
+        fetch('/api/microgreens?limit=200'),
         fetch('/api/suppliers'),
       ])
 
@@ -102,7 +110,20 @@ export default function CostingPage() {
         suppliersRes.json(),
       ])
 
-      setMicrogreens(microgreensData.data || [])
+      // Initialize microgreen costs with empty supplier prices
+      const initializedMicrogreens: MicrogreenCost[] = (microgreensData.data || []).map((m: any) => ({
+        ...m,
+        currentSeedCost: m.defaultSeedCostPerGram || 0,
+        supplierPrices: {
+          supplier1: { supplierId: '', price: 0 },
+          supplier2: { supplierId: '', price: 0 },
+          supplier3: { supplierId: '', price: 0 },
+        },
+        bestPrice: m.defaultSeedCostPerGram || 0,
+        bestSupplierId: null,
+      }))
+
+      setMicrogreens(initializedMicrogreens)
       setSuppliers(suppliersData.data || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
@@ -111,78 +132,140 @@ export default function CostingPage() {
     }
   }
 
-  const saveConfig = () => {
-    localStorage.setItem('costConfig', JSON.stringify(costConfig))
-    alert('Configuration saved!')
+  const updateSupplierPrice = (microgreenId: string, supplierNum: 1 | 2 | 3, field: 'supplierId' | 'price', value: string | number) => {
+    setMicrogreens(prev => prev.map(m => {
+      if (m.id !== microgreenId) return m
+
+      const updated = { ...m }
+      const key = `supplier${supplierNum}` as const
+      updated.supplierPrices = {
+        ...updated.supplierPrices,
+        [key]: {
+          ...updated.supplierPrices[key],
+          [field]: value,
+        },
+      }
+
+      // Recalculate best price
+      const prices = [
+        updated.supplierPrices.supplier1.price,
+        updated.supplierPrices.supplier2.price,
+        updated.supplierPrices.supplier3.price,
+      ].filter(p => p > 0)
+
+      if (prices.length > 0) {
+        updated.bestPrice = Math.min(...prices)
+        // Find which supplier has the best price
+        if (updated.supplierPrices.supplier1.price === updated.bestPrice) {
+          updated.bestSupplierId = updated.supplierPrices.supplier1.supplierId
+        } else if (updated.supplierPrices.supplier2.price === updated.bestPrice) {
+          updated.bestSupplierId = updated.supplierPrices.supplier2.supplierId
+        } else if (updated.supplierPrices.supplier3.price === updated.bestPrice) {
+          updated.bestSupplierId = updated.supplierPrices.supplier3.supplierId
+        }
+      }
+
+      return updated
+    }))
   }
 
-  const calculateCosts = async () => {
-    if (!selectedMicrogreenId) return
-    
-    const microgreen = microgreens.find(m => m.id === selectedMicrogreenId)
-    if (!microgreen) return
-
-    const seedingDensity = microgreen.seedingDensity || 0
-    const yieldPerTray = microgreen.yieldPerTray || 0
-    const seedCostPerGram = microgreen.defaultSeedCostPerGram || 0
-
-    // Calculate costs per tray
+  const calculateCosts = (m: MicrogreenCost) => {
+    const seedCost = m.bestPrice * m.seedingDensity
     const trayAmortizedCost = costConfig.trayCost / costConfig.trayUses
     const soilCost = (costConfig.soilCostPerKg / 1000) * costConfig.soilPerTrayGrams
-    const fabricPaperCost = costConfig.fabricPaperCost
-    const waterCost = costConfig.waterCostPerTray
-    const electricityCost = costConfig.electricityCostPerTray
-    const laborCost = costConfig.laborCostPerTray
-    const seedCost = seedingDensity * seedCostPerGram
+    const totalCostPerTray = trayAmortizedCost + soilCost + costConfig.fabricPaperCost + 
+                            costConfig.waterCostPerTray + costConfig.electricityCostPerTray + 
+                            costConfig.laborCostPerTray + seedCost
+    const costPerGram = totalCostPerTray / m.yieldPerTray
+    const listPricePerGram = costPerGram * (1 + costConfig.markupPercent / 100)
 
-    const totalCostPerTray = trayAmortizedCost + soilCost + fabricPaperCost + 
-                             waterCost + electricityCost + laborCost + seedCost
-    
-    // Cost per gram
-    const costPerGram = yieldPerTray > 0 ? totalCostPerTray / yieldPerTray : 0
-    
-    // List price with MARKUP (not margin)
-    const markupMultiplier = 1 + (costConfig.markupPercent / 100)
-    const listPricePerGram = costPerGram * markupMultiplier
-
-    // Save the list price to the microgreen
-    try {
-      const response = await fetch(`/api/microgreens/${microgreen.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listPricePerGram }),
-      })
-      if (!response.ok) {
-        console.error('Failed to save list price')
-      } else {
-        // Update local state
-        setMicrogreens(prev => prev.map(m => 
-          m.id === microgreen.id ? { ...m, listPricePerGram } : m
-        ))
-      }
-    } catch (err) {
-      console.error('Error saving list price:', err)
-    }
-
-    setCalculation({
-      microgreenId: microgreen.id,
-      microgreenName: microgreen.name,
-      variety: microgreen.variety || undefined,
-      seedingDensity,
-      yieldPerTray,
-      seedCostPerGram,
+    return {
+      seedCost,
       trayAmortizedCost,
       soilCost,
-      fabricPaperCost,
-      waterCost,
-      electricityCost,
-      laborCost,
-      seedCost,
       totalCostPerTray,
       costPerGram,
-      markupPercent: costConfig.markupPercent,
       listPricePerGram,
+    }
+  }
+
+  const saveCosts = async () => {
+    try {
+      setIsSaving(true)
+      setSuccessMessage(null)
+
+      // Save each microgreen's best price
+      const savePromises = microgreens.map(async (m) => {
+        if (m.bestPrice <= 0) return
+
+        const costs = calculateCosts(m)
+
+        return fetch(`/api/microgreens/${m.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            defaultSeedCostPerGram: m.bestPrice,
+            listPricePerGram: costs.listPricePerGram,
+          }),
+        })
+      })
+
+      await Promise.all(savePromises)
+      setSuccessMessage('All costs saved successfully!')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save costs')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const exportToCSV = () => {
+    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Supplier 1', 'Price 1', 'Supplier 2', 'Price 2', 'Supplier 3', 'Price 3', 'Best Price', 'Cost/Gram', 'List Price/Gram']
+    const rows = microgreens.map(m => {
+      const costs = calculateCosts(m)
+      const s1 = suppliers.find(s => s.id === m.supplierPrices.supplier1.supplierId)?.name || ''
+      const s2 = suppliers.find(s => s.id === m.supplierPrices.supplier2.supplierId)?.name || ''
+      const s3 = suppliers.find(s => s.id === m.supplierPrices.supplier3.supplierId)?.name || ''
+      
+      return [
+        m.name,
+        m.variety || '',
+        m.seedCode,
+        s1,
+        m.supplierPrices.supplier1.price || '',
+        s2,
+        m.supplierPrices.supplier2.price || '',
+        s3,
+        m.supplierPrices.supplier3.price || '',
+        m.bestPrice.toFixed(2),
+        costs.costPerGram.toFixed(4),
+        costs.listPricePerGram.toFixed(4),
+      ].join(',')
     })
+
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `microgreen-costs-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+  }
+
+  const filteredMicrogreens = microgreens.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         m.seedCode.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesIncomplete = showOnlyIncomplete ? m.bestPrice <= 0 : true
+    return matchesSearch && matchesIncomplete
+  })
+
+  const stats = {
+    total: microgreens.length,
+    withPrices: microgreens.filter(m => m.bestPrice > 0).length,
+    avgBestPrice: microgreens.filter(m => m.bestPrice > 0).length > 0
+      ? microgreens.filter(m => m.bestPrice > 0).reduce((sum, m) => sum + m.bestPrice, 0) / microgreens.filter(m => m.bestPrice > 0).length
+      : 0,
   }
 
   if (isLoading) {
@@ -191,335 +274,340 @@ export default function CostingPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with quick links */}
-      <div className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">💰 Costing</h1>
-            <p className="text-cyan-100 mt-1">Calculate production costs and set your list price with markup</p>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white/20 rounded-xl">
+              <Calculator className="h-8 w-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Cost Calculator</h1>
+              <p className="text-cyan-100 mt-1">Compare supplier prices • {microgreens.length} microgreens</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <button
+              onClick={saveCosts}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-cyan-600 rounded-lg text-sm font-medium hover:bg-cyan-50 disabled:opacity-50 transition-colors"
+            >
+              {isSaving ? (
+                <>Saving...</>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Save All Costs
+                </>
+              )}
+            </button>
           </div>
         </div>
-
-        {/* Quick action links */}
-        <div className="flex gap-3 mt-4">
-          <Link href="/microgreens" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
-            <Leaf className="h-4 w-4" />
-            View Microgreens
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-          <Link href="/pricing" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
-            <TrendingUp className="h-4 w-4" />
-            View Pricing
-          </Link>
-        </div>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <p className="text-green-800 font-medium">{successMessage}</p>
+        </div>
+      )}
 
       {error && <ErrorMessage message={error} onRetry={fetchData} />}
 
-      {/* Tab Selection */}
-      <div className="flex space-x-1 rounded-xl bg-gray-100 p-1">
-        <button
-          onClick={() => setActiveTab('config')}
-          className={`flex items-center justify-center w-full rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-            activeTab === 'config'
-              ? 'bg-white text-green-700 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Package className="h-4 w-4 mr-2" />
-          Cost Configuration
-        </button>
-        <button
-          onClick={() => setActiveTab('calculator')}
-          className={`flex items-center justify-center w-full rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-            activeTab === 'calculator'
-              ? 'bg-white text-green-700 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Calculator className="h-4 w-4 mr-2" />
-          Cost Calculator
-        </button>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatCard 
+          title="Total Microgreens" 
+          value={stats.total.toString()} 
+          icon={<Leaf className="h-5 w-5 text-green-500" />}
+          color="bg-green-50 border-green-200"
+        />
+        <StatCard 
+          title="With Prices Set" 
+          value={stats.withPrices.toString()} 
+          icon={<CheckCircle2 className="h-5 w-5 text-blue-500" />}
+          color="bg-blue-50 border-blue-200"
+        />
+        <StatCard 
+          title="Missing Prices" 
+          value={(stats.total - stats.withPrices).toString()} 
+          icon={<AlertCircle className="h-5 w-5 text-amber-500" />}
+          color="bg-amber-50 border-amber-200"
+        />
+        <StatCard 
+          title="Avg Best Price" 
+          value={`R${stats.avgBestPrice.toFixed(2)}/g`}
+          icon={<DollarSign className="h-5 w-5 text-cyan-500" />}
+          color="bg-cyan-50 border-cyan-200"
+        />
       </div>
 
-      {activeTab === 'config' ? (
-        <div className="space-y-6">
-          <Card title="Tray & Equipment" subtitle="Reusable equipment costs (amortized over uses)">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input
-                label="Tray Cost (R)"
-                type="number"
-                step="0.01"
-                value={costConfig.trayCost}
-                onChange={(e) => setCostConfig({ ...costConfig, trayCost: parseFloat(e.target.value) || 0 })}
-                hint={`Amortized: R${(costConfig.trayCost / costConfig.trayUses).toFixed(4)} per use`}
-              />
-              <Input
-                label="Tray Uses (times)"
-                type="number"
-                value={costConfig.trayUses}
-                onChange={(e) => setCostConfig({ ...costConfig, trayUses: parseInt(e.target.value) || 1000 })}
-                hint="How many times a tray can be reused"
-              />
-              <Input
-                label="Fabric Paper Cost (R)"
-                type="number"
-                step="0.01"
-                value={costConfig.fabricPaperCost}
-                onChange={(e) => setCostConfig({ ...costConfig, fabricPaperCost: parseFloat(e.target.value) || 0 })}
-                hint="Cost per tray"
-              />
-            </div>
-          </Card>
-
-          <Card title="Growing Medium" subtitle="Soil costs per tray">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Soil Cost (R per kg)"
-                type="number"
-                step="0.01"
-                value={costConfig.soilCostPerKg}
-                onChange={(e) => setCostConfig({ ...costConfig, soilCostPerKg: parseFloat(e.target.value) || 0 })}
-              />
-              <Input
-                label="Soil per Tray (grams)"
-                type="number"
-                value={costConfig.soilPerTrayGrams}
-                onChange={(e) => setCostConfig({ ...costConfig, soilPerTrayGrams: parseInt(e.target.value) || 500 })}
-                hint={`Cost per tray: R${((costConfig.soilCostPerKg / 1000) * costConfig.soilPerTrayGrams).toFixed(2)}`}
-              />
-            </div>
-          </Card>
-
-          <Card title="Utilities" subtitle="Water and electricity per tray">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <Droplets className="h-5 w-5 text-blue-500" />
-                <Input
-                  label="Water Cost (R per tray)"
-                  type="number"
-                  step="0.01"
-                  value={costConfig.waterCostPerTray}
-                  onChange={(e) => setCostConfig({ ...costConfig, waterCostPerTray: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <Zap className="h-5 w-5 text-yellow-500" />
-                <Input
-                  label="Electricity Cost (R per tray)"
-                  type="number"
-                  step="0.01"
-                  value={costConfig.electricityCostPerTray}
-                  onChange={(e) => setCostConfig({ ...costConfig, electricityCostPerTray: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
-          </Card>
-
-          <Card title="Labor" subtitle="Labor cost per tray">
-            <div className="flex items-center gap-3">
-              <Users className="h-5 w-5 text-purple-500" />
-              <Input
-                label="Labor Cost (R per tray)"
-                type="number"
-                step="0.01"
-                value={costConfig.laborCostPerTray}
-                onChange={(e) => setCostConfig({ ...costConfig, laborCostPerTray: parseFloat(e.target.value) || 0 })}
-                hint="Seeding, watering, harvesting labor"
-              />
-            </div>
-          </Card>
-
-          <Card title="Pricing Defaults" subtitle="Default markup for list price">
-            <div className="flex items-center gap-3">
-              <Tag className="h-5 w-5 text-green-500" />
-              <Input
-                label="Default Markup (%)"
-                type="number"
-                value={costConfig.markupPercent}
-                onChange={(e) => setCostConfig({ ...costConfig, markupPercent: parseFloat(e.target.value) || 0 })}
-                hint="Markup = Cost + (Cost × Markup%). Example: 100% markup doubles the cost"
-              />
-            </div>
-            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-800">
-                <strong>Markup vs Margin:</strong> Markup is added to cost. 100% markup = Cost × 2. 
-                This becomes your list price that feeds into the pricing page.
-              </p>
-            </div>
-          </Card>
-
-          <Card title="Base Cost Summary" subtitle="Fixed costs per tray (excluding seeds)">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <CostSummaryItem label="Tray" value={costConfig.trayCost / costConfig.trayUses} />
-              <CostSummaryItem label="Soil" value={(costConfig.soilCostPerKg / 1000) * costConfig.soilPerTrayGrams} />
-              <CostSummaryItem label="Fabric" value={costConfig.fabricPaperCost} />
-              <CostSummaryItem label="Water" value={costConfig.waterCostPerTray} />
-              <CostSummaryItem label="Electricity" value={costConfig.electricityCostPerTray} />
-              <CostSummaryItem label="Labor" value={costConfig.laborCostPerTray} />
-              <div className="col-span-2 bg-green-50 p-3 rounded-lg border border-green-200">
-                <div className="text-sm text-gray-600">Base Cost per Tray</div>
-                <div className="text-xl font-bold text-green-700">
-                  R{(
-                    (costConfig.trayCost / costConfig.trayUses) +
-                    ((costConfig.soilCostPerKg / 1000) * costConfig.soilPerTrayGrams) +
-                    costConfig.fabricPaperCost +
-                    costConfig.waterCostPerTray +
-                    costConfig.electricityCostPerTray +
-                    costConfig.laborCostPerTray
-                  ).toFixed(2)}
-                </div>
-                <div className="text-xs text-gray-500">(before seeds)</div>
-              </div>
-            </div>
-          </Card>
-
-          <div className="flex justify-end">
-            <Button onClick={saveConfig}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Configuration
-            </Button>
+      {/* Filters */}
+      <Card title="Filters">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search microgreens..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+            />
           </div>
+          
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showOnlyIncomplete}
+              onChange={(e) => setShowOnlyIncomplete(e.target.checked)}
+              className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+            />
+            <span className="text-sm text-gray-700">Show only incomplete</span>
+          </label>
         </div>
-      ) : (
-        <div className="space-y-6">
-          <Card title="Select Microgreen" subtitle="Choose a variety to calculate costs and list price">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                label="Microgreen"
-                value={selectedMicrogreenId}
-                onChange={(e) => {
-                  setSelectedMicrogreenId(e.target.value)
-                  setCalculation(null)
-                }}
-                options={[
-                  { value: '', label: 'Choose a microgreen...' },
-                  ...microgreens.map(m => ({ 
-                    value: m.id, 
-                    label: `${m.name}${m.variety ? ` (${m.variety})` : ''}` 
-                  }))
-                ]}
-              />
-              <div className="flex items-end">
-                <Button 
-                  onClick={calculateCosts} 
-                  disabled={!selectedMicrogreenId}
-                  className="w-full"
-                >
-                  <Calculator className="h-4 w-4 mr-2" />
-                  Calculate Costs & List Price
-                </Button>
-              </div>
-            </div>
-          </Card>
+      </Card>
 
-          {calculation && (
-            <>
-              <Card title={calculation.microgreenName} subtitle={calculation.variety}>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
-                    <div className="text-sm text-gray-600">Seeding Density</div>
-                    <div className="text-lg font-bold text-amber-700">{calculation.seedingDensity}g</div>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                    <div className="text-sm text-gray-600">Yield per Tray</div>
-                    <div className="text-lg font-bold text-green-700">{calculation.yieldPerTray}g</div>
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <div className="text-sm text-gray-600">Seed Cost</div>
-                    <div className="text-lg font-bold text-blue-700">R{calculation.seedCostPerGram.toFixed(2)}/g</div>
-                  </div>
-                </div>
-              </Card>
-
-              <Card title="Cost per Tray Breakdown" subtitle="All costs to produce one tray">
-                <div className="space-y-2">
-                  <CostRow label="Tray (amortized)" value={calculation.trayAmortizedCost} color="gray" />
-                  <CostRow label="Soil" value={calculation.soilCost} color="amber" />
-                  <CostRow label="Fabric Paper" value={calculation.fabricPaperCost} color="gray" />
-                  <CostRow label="Water" value={calculation.waterCost} color="blue" />
-                  <CostRow label="Electricity" value={calculation.electricityCost} color="yellow" />
-                  <CostRow label="Labor" value={calculation.laborCost} color="purple" />
-                  <CostRow label="Seeds" value={calculation.seedCost} color="green" detail={`${calculation.seedingDensity}g × R${calculation.seedCostPerGram.toFixed(2)}/g`} />
-                  
-                  <div className="border-t-2 border-gray-200 pt-3 mt-3">
-                    <div className="flex justify-between items-center p-4 bg-green-100 rounded-lg border-2 border-green-300">
-                      <span className="font-bold text-gray-900">TOTAL COST PER TRAY</span>
-                      <span className="text-2xl font-bold text-green-700">R{calculation.totalCostPerTray.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              <Card title="List Price Calculation" subtitle="Using markup (not margin)">
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-600 mb-1">Step 1: Cost per Gram</div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>R{calculation.totalCostPerTray.toFixed(2)} ÷ {calculation.yieldPerTray}g</span>
-                      <span>=</span>
-                      <span className="text-lg font-bold text-gray-900">R{calculation.costPerGram.toFixed(4)}/g</span>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <div className="text-sm text-gray-600 mb-1">Step 2: Apply Markup ({calculation.markupPercent}%)</div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>R{calculation.costPerGram.toFixed(4)} + {calculation.markupPercent}%</span>
-                      <span>=</span>
-                      <span className="text-lg font-bold text-amber-700">R{calculation.listPricePerGram.toFixed(4)}/g</span>
-                    </div>
-                    <div className="mt-2 text-xs text-amber-700">
-                      Formula: Cost × (1 + {calculation.markupPercent}%) = List Price
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-green-100 to-emerald-100 p-6 rounded-xl border-2 border-green-300 text-center">
-                    <div className="text-sm text-gray-600 mb-2">🎯 LIST PRICE (Saved to microgreen)</div>
-                    <div className="text-3xl font-bold text-green-700">R{calculation.listPricePerGram.toFixed(4)}/g</div>
-                    <div className="text-sm text-gray-500 mt-2">
-                      This price is now saved and will be used in the pricing page.
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </>
-          )}
+      {/* Cost Configuration */}
+      <Card title="Production Cost Settings" subtitle="Configure your fixed costs">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <CostInput
+            label="Tray Cost"
+            value={costConfig.trayCost}
+            onChange={(v) => setCostConfig({ ...costConfig, trayCost: v })}
+            suffix="R"
+          />
+          <CostInput
+            label="Tray Uses"
+            value={costConfig.trayUses}
+            onChange={(v) => setCostConfig({ ...costConfig, trayUses: v })}
+            suffix="uses"
+          />
+          
+          <CostInput
+            label="Soil Cost"
+            value={costConfig.soilCostPerKg}
+            onChange={(v) => setCostConfig({ ...costConfig, soilCostPerKg: v })}
+            suffix="R/kg"
+          />
+          
+          <CostInput
+            label="Markup %"
+            value={costConfig.markupPercent}
+            onChange={(v) => setCostConfig({ ...costConfig, markupPercent: v })}
+            suffix="%"
+          />
         </div>
-      )}
+      </Card>
+
+      {/* Supplier Prices Table */}
+      <Card 
+        title="Supplier Price Comparison" 
+        subtitle={`Enter prices from up to 3 suppliers for each microgreen. Best price auto-selected.`}
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase sticky left-0 bg-gray-50 z-10">Microgreen</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Seed Code</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-blue-50">Supplier 1</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-green-50">Supplier 2</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-purple-50">Supplier 3</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-white uppercase bg-emerald-600">Best Price</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Cost/Gram</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">List Price</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMicrogreens.map((m) => {
+                const costs = calculateCosts(m)
+                const hasBestPrice = m.bestPrice > 0
+
+                return (
+                  <tr key={m.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 sticky left-0 bg-white z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                          <Leaf className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{m.name}</div>
+                          {m.variety && <div className="text-xs text-gray-500">{m.variety}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    
+                    <td className="px-4 py-3 text-sm text-gray-500 font-mono">{m.seedCode}</td>
+                    
+                    {/* Supplier 1 */}
+                    <td className="px-2 py-3 bg-blue-50/50">
+                      <div className="space-y-1">
+                        <select
+                          value={m.supplierPrices.supplier1.supplierId}
+                          onChange={(e) => updateSupplierPrice(m.id, 1, 'supplierId', e.target.value)}
+                          className="w-full text-xs border border-gray-200 rounded px-2 py-1"
+                        >
+                          <option value="">Select...</option>
+                          {suppliers.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.supplierPrices.supplier1.price || ''}
+                            onChange={(e) => updateSupplierPrice(m.id, 1, 'price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
+                          />
+                          <span className="text-xs text-gray-500">/g</span>
+                        </div>
+                      </div>
+                    </td>
+                    
+                    {/* Supplier 2 */}
+                    <td className="px-2 py-3 bg-green-50/50">
+                      <div className="space-y-1">
+                        <select
+                          value={m.supplierPrices.supplier2.supplierId}
+                          onChange={(e) => updateSupplierPrice(m.id, 2, 'supplierId', e.target.value)}
+                          className="w-full text-xs border border-gray-200 rounded px-2 py-1"
+                        >
+                          <option value="">Select...</option>
+                          {suppliers.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.supplierPrices.supplier2.price || ''}
+                            onChange={(e) => updateSupplierPrice(m.id, 2, 'price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
+                          />
+                          <span className="text-xs text-gray-500">/g</span>
+                        </div>
+                      </div>
+                    </td>
+                    
+                    {/* Supplier 3 */}
+                    <td className="px-2 py-3 bg-purple-50/50">
+                      <div className="space-y-1">
+                        <select
+                          value={m.supplierPrices.supplier3.supplierId}
+                          onChange={(e) => updateSupplierPrice(m.id, 3, 'supplierId', e.target.value)}
+                          className="w-full text-xs border border-gray-200 rounded px-2 py-1"
+                        >
+                          <option value="">Select...</option>
+                          {suppliers.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">R</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.supplierPrices.supplier3.price || ''}
+                            onChange={(e) => updateSupplierPrice(m.id, 3, 'price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
+                          />
+                          <span className="text-xs text-gray-500">/g</span>
+                        </div>
+                      </div>
+                    </td>
+                    
+                    {/* Best Price */}
+                    <td className="px-4 py-3 text-center bg-emerald-50">
+                      {hasBestPrice ? (
+                        <div className="inline-flex flex-col items-center">
+                          <span className="text-lg font-bold text-emerald-700">R{m.bestPrice.toFixed(2)}</span>
+                          <span className="text-xs text-emerald-600">per gram</span>
+                          {m.bestSupplierId && (
+                            <span className="text-xs text-gray-500 mt-1">
+                              {suppliers.find(s => s.id === m.bestSupplierId)?.name || 'Unknown'}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">No prices</span>
+                      )}
+                    </td>
+                    
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-sm font-medium text-gray-700">
+                        {hasBestPrice ? `R${costs.costPerGram.toFixed(4)}` : '-'}
+                      </span>
+                    </td>
+                    
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-sm font-bold text-cyan-700">
+                        {hasBestPrice ? `R${costs.listPricePerGram.toFixed(4)}` : '-'}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {filteredMicrogreens.length === 0 && (
+          <div className="text-center py-12">
+            <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No microgreens found matching your search.</p>
+          </div>
+        )}
+      </Card>
     </div>
   )
 }
 
-function CostSummaryItem({ label, value }: { label: string; value: number }) {
+function StatCard({ title, value, icon, color }: { title: string; value: string; icon: React.ReactNode; color: string }) {
   return (
-    <div className="bg-gray-50 p-3 rounded-lg">
-      <div className="text-sm text-gray-600">{label}</div>
-      <div className="font-semibold text-gray-900">R{value.toFixed(2)}</div>
-    </div>
-  )
-}
-
-function CostRow({ label, value, color, detail }: { label: string; value: number; color: string; detail?: string }) {
-  const colorClasses: Record<string, string> = {
-    green: 'bg-green-50 text-green-700 border-green-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    pink: 'bg-pink-50 text-pink-700 border-pink-200',
-    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    cyan: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    gray: 'bg-gray-50 text-gray-700 border-gray-200',
-  }
-  
-  return (
-    <div className={`flex justify-between items-center p-3 rounded-lg border ${colorClasses[color] || colorClasses.gray}`}>
-      <div>
-        <span className="font-medium">{label}</span>
-        {detail && <span className="text-sm text-gray-500 ml-2">({detail})</span>}
+    <div className={`p-4 rounded-xl border shadow-sm ${color}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium text-gray-600">{title}</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{value}</div>
+        </div>
+        <div className="p-2 bg-white rounded-lg shadow-sm">{icon}</div>
       </div>
-      <span className="font-semibold">R{value.toFixed(2)}</span>
+    </div>
+  )
+}
+
+function CostInput({ label, value, onChange, suffix }: { label: string; value: number; onChange: (v: number) => void; suffix: string }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="relative">
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+          className="w-full pr-12 pl-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+        />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">{suffix}</span>
+      </div>
     </div>
   )
 }
