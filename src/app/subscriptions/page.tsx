@@ -18,8 +18,8 @@ const SUBSCRIPTION_PACK_SIZE = 100
 
 export default function SubscriptionsPage() {
   const [activeTab, setActiveTab] = useState('microgreens')
-  const [microgreens, setMicrogreens] = useState([])
-  const [mixes, setMixes] = useState([])
+  const [microgreens, setMicrogreens] = useState<any[]>([])
+  const [mixes, setMixes] = useState<any[]>([])
   const [selectedDuration, setSelectedDuration] = useState(DURATION_DISCOUNTS[0])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -69,7 +69,7 @@ export default function SubscriptionsPage() {
     
     let totalListPrice = 0
     
-    mix.components.forEach((comp) => {
+    mix.components.forEach((comp: any) => {
       const microgreen = comp.microgreen
       if (microgreen && microgreen.listPricePerGram) {
         const weight = (comp.percentage / 100) * SUBSCRIPTION_PACK_SIZE
