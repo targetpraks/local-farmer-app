@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit, Trash2, Leaf } from 'lucide-react'
+import { Plus, Edit, Trash2, Leaf, Calculator, TrendingUp, FlaskConical } from 'lucide-react'
 import { DataTable } from '@/components/DataTable'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -151,17 +151,36 @@ export default function MicrogreensPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Microgreens</h1>
-          <p className="text-gray-500">Manage your microgreen varieties and growing details</p>
+      {/* Header with quick links */}
+      <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">🌱 Microgreens</h1>
+            <p className="text-green-100 mt-1">Manage your varieties • {microgreens.length} types available</p>
+          </div>
+          <Link href="/microgreens/new">
+            <Button className="bg-white text-green-700 hover:bg-green-50">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Microgreen
+            </Button>
+          </Link>
         </div>
-        <Link href="/microgreens/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Microgreen
-          </Button>
-        </Link>
+        
+        {/* Quick action links */}
+        <div className="flex gap-3 mt-4">
+          <Link href="/costing" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
+            <Calculator className="h-4 w-4" />
+            Calculate Costs
+          </Link>
+          <Link href="/pricing" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
+            <TrendingUp className="h-4 w-4" />
+            View Pricing
+          </Link>
+          <Link href="/mixes" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
+            <FlaskConical className="h-4 w-4" />
+            Create Mix
+          </Link>
+        </div>
       </div>
 
       {error && <ErrorMessage message={error} onRetry={fetchMicrogreens} />}

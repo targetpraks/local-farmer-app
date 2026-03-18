@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Leaf, Package, Zap, Users, Beaker, Droplets, Grid3X3, Calculator, Save, TrendingUp, Percent } from 'lucide-react'
+import Link from 'next/link'
+import { Leaf, Package, Zap, Users, Beaker, Droplets, Grid3X3, Calculator, Save, TrendingUp, Percent, ArrowRight } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -15,23 +16,14 @@ const TRAY_USES = 1000
 const SOIL_PER_TRAY_GRAMS = 500
 
 interface CostConfig {
-  // Tray & Equipment
   trayCost: number
   trayUses: number
   fabricPaperCost: number
-  
-  // Growing Medium
   soilCostPerKg: number
   soilPerTrayGrams: number
-  
-  // Utilities
   waterCostPerTray: number
   electricityCostPerTray: number
-  
-  // Labor
   laborCostPerTray: number
-  
-  // Pricing
   marginPercent: number
 }
 
@@ -39,13 +31,9 @@ interface CostCalculation {
   microgreenId: string
   microgreenName: string
   variety?: string
-  
-  // Inputs
   seedingDensity: number
   yieldPerTray: number
   seedCostPerGram: number
-  
-  // Cost per Tray breakdown
   trayAmortizedCost: number
   soilCost: number
   fabricPaperCost: number
@@ -54,15 +42,9 @@ interface CostCalculation {
   laborCost: number
   seedCost: number
   totalCostPerTray: number
-  
-  // Cost per gram
   costPerGram: number
-  
-  // Pricing
   marginPercent: number
   listPricePerGram: number
-  
-  // With discount
   discountPercent: number
   finalPricePerGram: number
 }
@@ -85,21 +67,20 @@ export default function CostingPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  // Cost configuration
   const [costConfig, setCostConfig] = useState<CostConfig>(defaultCostConfig)
-  
-  // Calculator
   const [selectedMicrogreenId, setSelectedMicrogreenId] = useState('')
   const [discountPercent, setDiscountPercent] = useState(0)
   const [calculation, setCalculation] = useState<CostCalculation | null>(null)
 
   useEffect(() => {
     fetchData()
-    // Load saved config
     const savedConfig = localStorage.getItem('costConfig')
     if (savedConfig) {
-      setCostConfig(JSON.parse(savedConfig))
+      try {
+        setCostConfig(JSON.parse(savedConfig))
+      } catch (e) {
+        console.error('Failed to load saved config:', e)
+      }
     }
   }, [])
 
@@ -143,7 +124,6 @@ export default function CostingPage() {
     const yieldPerTray = microgreen.yieldPerTray || 0
     const seedCostPerGram = microgreen.defaultSeedCostPerGram || 0
 
-    // Calculate cost per tray
     const trayAmortizedCost = costConfig.trayCost / costConfig.trayUses
     const soilCost = (costConfig.soilCostPerKg / 1000) * costConfig.soilPerTrayGrams
     const fabricPaperCost = costConfig.fabricPaperCost
@@ -154,15 +134,9 @@ export default function CostingPage() {
 
     const totalCostPerTray = trayAmortizedCost + soilCost + fabricPaperCost + 
                              waterCost + electricityCost + laborCost + seedCost
-
-    // Cost per gram
     const costPerGram = yieldPerTray > 0 ? totalCostPerTray / yieldPerTray : 0
-
-    // List price with margin
     const marginMultiplier = 1 + (costConfig.marginPercent / 100)
     const listPricePerGram = costPerGram * marginMultiplier
-
-    // Final price with discount
     const discountMultiplier = 1 - (discountPercent / 100)
     const finalPricePerGram = listPricePerGram * discountMultiplier
 
@@ -195,9 +169,27 @@ export default function CostingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Costing</h1>
-        <p className="text-gray-500">Calculate production costs and pricing per microgreen</p>
+      {/* Header with quick links */}
+      <div className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">💰 Costing</h1>
+            <p className="text-cyan-100 mt-1">Calculate production costs and pricing per microgreen</p>
+          </div>
+        </div>
+
+        {/* Quick action links */}
+        <div className="flex gap-3 mt-4">
+          <Link href="/microgreens" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
+            <Leaf className="h-4 w-4" />
+            View Microgreens
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+          <Link href="/pricing" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
+            <TrendingUp className="h-4 w-4" />
+            View Pricing
+          </Link>
+        </div>
       </div>
 
       {error && <ErrorMessage message={error} onRetry={fetchData} />}
@@ -230,7 +222,6 @@ export default function CostingPage() {
 
       {activeTab === 'config' ? (
         <div className="space-y-6">
-          {/* Tray & Equipment */}
           <Card title="Tray & Equipment" subtitle="Reusable equipment costs (amortized over uses)">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
@@ -259,7 +250,6 @@ export default function CostingPage() {
             </div>
           </Card>
 
-          {/* Growing Medium */}
           <Card title="Growing Medium" subtitle="Soil costs per tray">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
@@ -279,7 +269,6 @@ export default function CostingPage() {
             </div>
           </Card>
 
-          {/* Utilities */}
           <Card title="Utilities" subtitle="Water and electricity per tray">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-3">
@@ -305,7 +294,6 @@ export default function CostingPage() {
             </div>
           </Card>
 
-          {/* Labor */}
           <Card title="Labor" subtitle="Labor cost per tray">
             <div className="flex items-center gap-3">
               <Users className="h-5 w-5 text-purple-500" />
@@ -320,7 +308,6 @@ export default function CostingPage() {
             </div>
           </Card>
 
-          {/* Pricing */}
           <Card title="Pricing Defaults" subtitle="Default margin for calculations">
             <div className="flex items-center gap-3">
               <TrendingUp className="h-5 w-5 text-green-500" />
@@ -334,7 +321,6 @@ export default function CostingPage() {
             </div>
           </Card>
 
-          {/* Summary */}
           <Card title="Base Cost Summary" subtitle="Fixed costs per tray (excluding seeds)">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <CostSummaryItem label="Tray" value={costConfig.trayCost / costConfig.trayUses} />
@@ -369,7 +355,6 @@ export default function CostingPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Microgreen Selection */}
           <Card title="Select Microgreen" subtitle="Choose a variety to calculate costs">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select
@@ -406,10 +391,8 @@ export default function CostingPage() {
             </div>
           </Card>
 
-          {/* Cost Breakdown */}
           {calculation && (
             <>
-              {/* Microgreen Info */}
               <Card title={calculation.microgreenName} subtitle={calculation.variety}>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
@@ -427,7 +410,6 @@ export default function CostingPage() {
                 </div>
               </Card>
 
-              {/* Cost per Tray Breakdown */}
               <Card title="Cost per Tray Breakdown" subtitle="All costs to produce one tray">
                 <div className="space-y-2">
                   <CostRow label="Tray (amortized)" value={calculation.trayAmortizedCost} color="gray" />
@@ -447,10 +429,8 @@ export default function CostingPage() {
                 </div>
               </Card>
 
-              {/* Cost per Gram & Pricing */}
               <Card title="Pricing Calculation" subtitle="From cost to final price">
                 <div className="space-y-4">
-                  {/* Step 1: Cost per Gram */}
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-sm text-gray-600 mb-1">Step 1: Cost per Gram</div>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -460,7 +440,6 @@ export default function CostingPage() {
                     </div>
                   </div>
 
-                  {/* Step 2: List Price with Margin */}
                   <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                     <div className="text-sm text-gray-600 mb-1">Step 2: List Price ({calculation.marginPercent}% margin)</div>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -470,7 +449,6 @@ export default function CostingPage() {
                     </div>
                   </div>
 
-                  {/* Step 3: Final Price with Discount */}
                   {calculation.discountPercent > 0 && (
                     <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="text-sm text-gray-600 mb-1">Step 3: Final Price ({calculation.discountPercent}% discount)</div>
@@ -482,7 +460,6 @@ export default function CostingPage() {
                     </div>
                   )}
 
-                  {/* Final Summary */}
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="bg-green-100 p-4 rounded-lg border-2 border-green-300 text-center">
                       <div className="text-sm text-gray-600">List Price</div>
