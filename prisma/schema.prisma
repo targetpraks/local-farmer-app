@@ -448,6 +448,42 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
+// ============================================
+// PRODUCTION COSTS CONFIGURATION
+// ============================================
+
+model ProductionCostConfig {
+  id        String   @id @default(cuid())
+  
+  // Tray configuration
+  trayCost   Float @default(50)
+  trayUses   Int   @default(1000)
+  trayLengthCm Float @default(42)
+  trayWidthCm  Float @default(22)
+  trayDepthCm  Float @default(2)
+  
+  // Material costs
+  fabricPaperCost Float @default(2)
+  soilCostPerKg     Float @default(15)
+  soilPerTrayGrams  Float @default(500)
+  
+  // Utility costs
+  waterCostPerTray      Float @default(1)
+  electricityCostPerTray Float @default(2)
+  
+  // Labor costs
+  laborCostPerTray Float @default(5)
+  
+  // Default markup
+  markupPercent Float @default(100)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("production_cost_configs")
+}
+
 model ExportImportLog {
   id           String    @id @default(cuid())
   type         String // EXPORT or IMPORT

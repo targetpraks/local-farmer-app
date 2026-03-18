@@ -19,50 +19,33 @@ import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
 
 interface ProductionCostConfig {
-  // Tray costs
+  id?: string
   trayCost: number
   trayUses: number
   trayLengthCm: number
   trayWidthCm: number
   trayDepthCm: number
-  
-  // Material costs
   fabricPaperCost: number
   soilCostPerKg: number
   soilPerTrayGrams: number
-  
-  // Utility costs
   waterCostPerTray: number
   electricityCostPerTray: number
-  
-  // Labor costs
   laborCostPerTray: number
-  
-  // Default markup
   markupPercent: number
 }
 
 const defaultConfig: ProductionCostConfig = {
-  // Tray costs
   trayCost: 50,
   trayUses: 1000,
   trayLengthCm: 42,
   trayWidthCm: 22,
   trayDepthCm: 2,
-  
-  // Material costs
   fabricPaperCost: 2,
   soilCostPerKg: 15,
   soilPerTrayGrams: 500,
-  
-  // Utility costs
   waterCostPerTray: 1,
   electricityCostPerTray: 2,
-  
-  // Labor costs
   laborCostPerTray: 5,
-  
-  // Default markup
   markupPercent: 100,
 }
 
@@ -74,31 +57,48 @@ export default function TradeCostingPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load saved config from localStorage
-    const savedConfig = localStorage.getItem('productionCostConfig')
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig)
-        setConfig({ ...defaultConfig, ...parsed })
-      } catch (e) {
-        console.error('Failed to load saved config:', e)
-      }
-    }
-    setIsLoading(false)
+    fetchConfig()
   }, [])
+
+  const fetchConfig = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/production-costs')
+      if (!response.ok) throw new Error('Failed to fetch production costs')
+      const result = await response.json()
+      if (result.data) {
+        setConfig({ ...defaultConfig, ...result.data })
+      }
+    } catch (err) {
+      console.error('Failed to load production costs:', err)
+      // Use defaults if API fails
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const updateConfig = (field: keyof ProductionCostConfig, value: number) => {
     setConfig(prev => ({ ...prev, [field]: value }))
   }
 
-  const saveConfig = () => {
+  const saveConfig = async () => {
     try {
       setIsSaving(true)
-      localStorage.setItem('productionCostConfig', JSON.stringify(config))
+      setSuccessMessage(null)
+      setError(null)
+      
+      const response = await fetch('/api/production-costs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+      
+      if (!response.ok) throw new Error('Failed to save production costs')
+      
       setSuccessMessage('Trade costs saved successfully!')
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
-      setError('Failed to save trade costs')
+      setError(err instanceof Error ? err.message : 'Failed to save trade costs')
     } finally {
       setIsSaving(false)
     }
@@ -153,7 +153,7 @@ export default function TradeCostingPage() {
         </div>
       )}
 
-      {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
+      {error && <ErrorMessage message={error} onRetry={fetchConfig} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Cost Inputs */}

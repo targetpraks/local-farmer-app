@@ -3,30 +3,34 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { 
-  TrendingUp, 
   Save, 
-  Calculator, 
-  Package, 
   DollarSign, 
   Store,
   CheckCircle2,
   AlertCircle,
-  ArrowRight,
   Leaf,
   Search,
-  Filter,
   Download,
   Beaker
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
 
-interface Supplier {
+interface MicrogreenCost {
   id: string
   name: string
+  variety?: string
+  seedCode: string
+  seedingDensity: number
+  yieldPerTray: number
+  prices: {
+    price1: number
+    price2: number
+    price3: number
+  }
+  bestPrice: number
 }
 
 interface ProductionCostConfig {
@@ -53,26 +57,8 @@ const defaultProductionConfig: ProductionCostConfig = {
   markupPercent: 100,
 }
 
-interface MicrogreenCost {
-  id: string
-  name: string
-  variety?: string
-  seedCode: string
-  seedingDensity: number
-  yieldPerTray: number
-  currentSeedCost: number
-  supplierPrices: {
-    supplier1: { supplierId: string; price: number }
-    supplier2: { supplierId: string; price: number }
-    supplier3: { supplierId: string; price: number }
-  }
-  bestPrice: number
-  bestSupplierId: string | null
-}
-
 export default function SeedCostingPage() {
   const [microgreens, setMicrogreens] = useState<MicrogreenCost[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [productionConfig, setProductionConfig] = useState<ProductionCostConfig>(defaultProductionConfig)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -83,49 +69,36 @@ export default function SeedCostingPage() {
 
   useEffect(() => {
     fetchData()
-    // Load production costs from localStorage
-    const savedConfig = localStorage.getItem('productionCostConfig')
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig)
-        setProductionConfig({ ...defaultProductionConfig, ...parsed })
-      } catch (e) {
-        console.error('Failed to load production config:', e)
-      }
-    }
+    // Load production costs from API
+    fetch('/api/production-costs')
+      .then(res => res.json())
+      .then(result => {
+        if (result.data) {
+          setProductionConfig({ ...defaultProductionConfig, ...result.data })
+        }
+      })
+      .catch(err => console.error('Failed to load production costs:', err))
   }, [])
 
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      const [microgreensRes, suppliersRes] = await Promise.all([
-        fetch('/api/microgreens?limit=200'),
-        fetch('/api/suppliers'),
-      ])
+      const response = await fetch('/api/microgreens?limit=200')
+      if (!response.ok) throw new Error('Failed to fetch microgreens')
+      const result = await response.json()
 
-      if (!microgreensRes.ok) throw new Error('Failed to fetch microgreens')
-      if (!suppliersRes.ok) throw new Error('Failed to fetch suppliers')
-
-      const [microgreensData, suppliersData] = await Promise.all([
-        microgreensRes.json(),
-        suppliersRes.json(),
-      ])
-
-      // Initialize microgreen costs with empty supplier prices
-      const initializedMicrogreens: MicrogreenCost[] = (microgreensData.data || []).map((m: any) => ({
+      // Initialize microgreen costs with empty prices
+      const initializedMicrogreens: MicrogreenCost[] = (result.data || []).map((m: any) => ({
         ...m,
-        currentSeedCost: m.defaultSeedCostPerGram || 0,
-        supplierPrices: {
-          supplier1: { supplierId: '', price: 0 },
-          supplier2: { supplierId: '', price: 0 },
-          supplier3: { supplierId: '', price: 0 },
+        prices: {
+          price1: m.defaultSeedCostPerGram || 0,
+          price2: 0,
+          price3: 0,
         },
         bestPrice: m.defaultSeedCostPerGram || 0,
-        bestSupplierId: null,
       }))
 
       setMicrogreens(initializedMicrogreens)
-      setSuppliers(suppliersData.data || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
@@ -133,37 +106,22 @@ export default function SeedCostingPage() {
     }
   }
 
-  const updateSupplierPrice = (microgreenId: string, supplierNum: 1 | 2 | 3, field: 'supplierId' | 'price', value: string | number) => {
+  const updatePrice = (microgreenId: string, field: 'price1' | 'price2' | 'price3', value: number) => {
     setMicrogreens(prev => prev.map(m => {
       if (m.id !== microgreenId) return m
 
       const updated = { ...m }
-      const key = `supplier${supplierNum}` as const
-      updated.supplierPrices = {
-        ...updated.supplierPrices,
-        [key]: {
-          ...updated.supplierPrices[key],
-          [field]: value,
-        },
-      }
+      updated.prices = { ...updated.prices, [field]: value }
 
       // Recalculate best price
       const prices = [
-        updated.supplierPrices.supplier1.price,
-        updated.supplierPrices.supplier2.price,
-        updated.supplierPrices.supplier3.price,
+        updated.prices.price1,
+        updated.prices.price2,
+        updated.prices.price3,
       ].filter(p => p > 0)
 
       if (prices.length > 0) {
         updated.bestPrice = Math.min(...prices)
-        // Find which supplier has the best price
-        if (updated.supplierPrices.supplier1.price === updated.bestPrice) {
-          updated.bestSupplierId = updated.supplierPrices.supplier1.supplierId
-        } else if (updated.supplierPrices.supplier2.price === updated.bestPrice) {
-          updated.bestSupplierId = updated.supplierPrices.supplier2.supplierId
-        } else if (updated.supplierPrices.supplier3.price === updated.bestPrice) {
-          updated.bestSupplierId = updated.supplierPrices.supplier3.supplierId
-        }
       }
 
       return updated
@@ -171,7 +129,6 @@ export default function SeedCostingPage() {
   }
 
   const calculateProductionCostPerTray = () => {
-    // Production cost per tray = amortized tray + soil + fabric + water + electricity + labor
     const trayAmortized = productionConfig.trayCost / productionConfig.trayUses
     const soilCost = (productionConfig.soilCostPerKg / 1000) * productionConfig.soilPerTrayGrams
     return trayAmortized + productionConfig.fabricPaperCost + soilCost + 
@@ -180,7 +137,6 @@ export default function SeedCostingPage() {
   }
 
   const calculateTotalCostPerGram = (m: MicrogreenCost) => {
-    // Total cost per gram = seed cost per gram + production cost per gram
     const seedCostPerGram = m.bestPrice
     const productionCostPerTray = calculateProductionCostPerTray()
     const productionCostPerGram = productionCostPerTray / m.yieldPerTray
@@ -188,13 +144,11 @@ export default function SeedCostingPage() {
   }
 
   const calculateListPricePerGram = (m: MicrogreenCost) => {
-    // List price = total cost × (1 + markup%)
     const totalCost = calculateTotalCostPerGram(m)
     return totalCost * (1 + productionConfig.markupPercent / 100)
   }
 
-  const calculateSeedCost = (m: MicrogreenCost) => {
-    // Cost per tray = best price × seeding density
+  const calculateSeedCostPerTray = (m: MicrogreenCost) => {
     return m.bestPrice * m.seedingDensity
   }
 
@@ -203,7 +157,6 @@ export default function SeedCostingPage() {
       setIsSaving(true)
       setSuccessMessage(null)
 
-      // Save each microgreen's calculated list price
       const savePromises = microgreens.map(async (m) => {
         if (m.bestPrice <= 0) return
 
@@ -220,7 +173,7 @@ export default function SeedCostingPage() {
       })
 
       await Promise.all(savePromises)
-      setSuccessMessage('All costs saved successfully! Seed cost + Production cost + Markup = List Price')
+      setSuccessMessage('All costs saved successfully! Seed + Production + Markup = List Price')
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save costs')
@@ -230,12 +183,11 @@ export default function SeedCostingPage() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding Density', 'Yield/Tray', 'Supplier 1', 'Price 1', 'Supplier 2', 'Price 2', 'Supplier 3', 'Price 3', 'Best Price', 'Seed Cost/Tray']
+    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding Density', 'Yield/Tray', 'Price 1', 'Price 2', 'Price 3', 'Best Price', 'Seed Cost/Tray', 'Total Cost/Gram', 'List Price/Gram']
     const rows = microgreens.map(m => {
-      const s1 = suppliers.find(s => s.id === m.supplierPrices.supplier1.supplierId)?.name || ''
-      const s2 = suppliers.find(s => s.id === m.supplierPrices.supplier2.supplierId)?.name || ''
-      const s3 = suppliers.find(s => s.id === m.supplierPrices.supplier3.supplierId)?.name || ''
-      const seedCost = calculateSeedCost(m)
+      const seedCost = calculateSeedCostPerTray(m)
+      const totalCostPerGram = calculateTotalCostPerGram(m)
+      const listPricePerGram = calculateListPricePerGram(m)
       
       return [
         m.name,
@@ -243,14 +195,13 @@ export default function SeedCostingPage() {
         m.seedCode,
         m.seedingDensity,
         m.yieldPerTray,
-        s1,
-        m.supplierPrices.supplier1.price || '',
-        s2,
-        m.supplierPrices.supplier2.price || '',
-        s3,
-        m.supplierPrices.supplier3.price || '',
+        m.prices.price1 || '',
+        m.prices.price2 || '',
+        m.prices.price3 || '',
         m.bestPrice.toFixed(2),
         seedCost.toFixed(2),
+        totalCostPerGram.toFixed(4),
+        listPricePerGram.toFixed(4),
       ].join(',')
     })
 
@@ -273,9 +224,6 @@ export default function SeedCostingPage() {
   const stats = {
     total: microgreens.length,
     withPrices: microgreens.filter(m => m.bestPrice > 0).length,
-    avgBestPrice: microgreens.filter(m => m.bestPrice > 0).length > 0
-      ? microgreens.filter(m => m.bestPrice > 0).reduce((sum, m) => sum + m.bestPrice, 0) / microgreens.filter(m => m.bestPrice > 0).length
-      : 0,
   }
 
   if (isLoading) {
@@ -293,7 +241,7 @@ export default function SeedCostingPage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold">Seed Costing</h1>
-              <p className="text-cyan-100 mt-1">Compare supplier prices • {microgreens.length} microgreens</p>
+              <p className="text-cyan-100 mt-1">Enter seed prices • {microgreens.length} microgreens</p>
             </div>
           </div>
           
@@ -327,7 +275,7 @@ export default function SeedCostingPage() {
         </div>
       </div>
 
-      {/* Success/Error Messages */}
+      {/* Messages */}
       {successMessage && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
           <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -360,7 +308,7 @@ export default function SeedCostingPage() {
         <StatCard 
           title="Markup Rate" 
           value={`${productionConfig.markupPercent}%`}
-          icon={<TrendingUp className="h-5 w-5 text-purple-500" />}
+          icon={<DollarSign className="h-5 w-5 text-purple-500" />}
           color="bg-purple-50 border-purple-200"
         />
       </div>
@@ -430,10 +378,10 @@ export default function SeedCostingPage() {
         </div>
       </Card>
 
-      {/* Supplier Prices Table */}
+      {/* Prices Table */}
       <Card 
-        title="Supplier Price Comparison" 
-        subtitle={`Enter prices from up to 3 suppliers for each microgreen. Best price auto-selected.`}
+        title="Seed Price Comparison" 
+        subtitle={`Enter up to 3 seed prices per microgreen. Best price auto-selected.`}
       >
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -443,16 +391,16 @@ export default function SeedCostingPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Seed Code</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Seeding</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Yield</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-blue-50">Supplier 1</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-green-50">Supplier 2</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-purple-50">Supplier 3</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-blue-50">Price 1</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-green-50">Price 2</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-purple-50">Price 3</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-white uppercase bg-emerald-600">Best Price</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Seed Cost/Tray</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">List Price/Gram</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredMicrogreens.map((m) => {
-                const seedCost = calculateSeedCost(m)
+                const listPricePerGram = calculateListPricePerGram(m)
                 const hasBestPrice = m.bestPrice > 0
 
                 return (
@@ -483,89 +431,51 @@ export default function SeedCostingPage() {
                       </span>
                     </td>
                     
-                    {/* Supplier 1 */}
+                    {/* Price 1 */}
                     <td className="px-2 py-3 bg-blue-50/50">
-                      <div className="space-y-1">
-                        <select
-                          value={m.supplierPrices.supplier1.supplierId}
-                          onChange={(e) => updateSupplierPrice(m.id, 1, 'supplierId', e.target.value)}
-                          className="w-full text-xs border border-gray-200 rounded px-2 py-1"
-                        >
-                          <option value="">Select...</option>
-                          {suppliers.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500">R</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={m.supplierPrices.supplier1.price || ''}
-                            onChange={(e) => updateSupplierPrice(m.id, 1, 'price', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
-                            className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
-                          />
-                          <span className="text-xs text-gray-500">/g</span>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">R</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={m.prices.price1 || ''}
+                          onChange={(e) => updatePrice(m.id, 'price1', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
+                        />
+                        <span className="text-xs text-gray-500">/g</span>
                       </div>
                     </td>
                     
-                    {/* Supplier 2 */}
+                    {/* Price 2 */}
                     <td className="px-2 py-3 bg-green-50/50">
-                      <div className="space-y-1">
-                        <select
-                          value={m.supplierPrices.supplier2.supplierId}
-                          onChange={(e) => updateSupplierPrice(m.id, 2, 'supplierId', e.target.value)}
-                          className="w-full text-xs border border-gray-200 rounded px-2 py-1"
-                        >
-                          <option value="">Select...</option>
-                          {suppliers.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                        
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500">R</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={m.supplierPrices.supplier2.price || ''}
-                            onChange={(e) => updateSupplierPrice(m.id, 2, 'price', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
-                            className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
-                          />
-                          <span className="text-xs text-gray-500">/g</span>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">R</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={m.prices.price2 || ''}
+                          onChange={(e) => updatePrice(m.id, 'price2', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
+                        />
+                        <span className="text-xs text-gray-500">/g</span>
                       </div>
                     </td>
                     
-                    {/* Supplier 3 */}
+                    {/* Price 3 */}
                     <td className="px-2 py-3 bg-purple-50/50">
-                      <div className="space-y-1">
-                        <select
-                          value={m.supplierPrices.supplier3.supplierId}
-                          onChange={(e) => updateSupplierPrice(m.id, 3, 'supplierId', e.target.value)}
-                          className="w-full text-xs border border-gray-200 rounded px-2 py-1"
-                        >
-                          <option value="">Select...</option>
-                          {suppliers.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                        
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500">R</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={m.supplierPrices.supplier3.price || ''}
-                            onChange={(e) => updateSupplierPrice(m.id, 3, 'price', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
-                            className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
-                          />
-                          <span className="text-xs text-gray-500">/g</span>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">R</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={m.prices.price3 || ''}
+                          onChange={(e) => updatePrice(m.id, 'price3', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-20 text-sm border border-gray-200 rounded px-2 py-1"
+                        />
+                        <span className="text-xs text-gray-500">/g</span>
                       </div>
                     </td>
                     
@@ -575,11 +485,6 @@ export default function SeedCostingPage() {
                         <div className="inline-flex flex-col items-center">
                           <span className="text-lg font-bold text-emerald-700">R{m.bestPrice.toFixed(2)}</span>
                           <span className="text-xs text-emerald-600">per gram</span>
-                          {m.bestSupplierId && (
-                            <span className="text-xs text-gray-500 mt-1">
-                              {suppliers.find(s => s.id === m.bestSupplierId)?.name || 'Unknown'}
-                            </span>
-                          )}
                         </div>
                       ) : (
                         <span className="text-sm text-gray-400 italic">No prices</span>
@@ -588,7 +493,7 @@ export default function SeedCostingPage() {
                     
                     <td className="px-4 py-3 text-right">
                       <span className="text-sm font-bold text-cyan-700">
-                        {hasBestPrice ? `R${seedCost.toFixed(2)}` : '-'}
+                        {hasBestPrice ? `R${listPricePerGram.toFixed(4)}` : '-'}
                       </span>
                     </td>
                   </tr>
