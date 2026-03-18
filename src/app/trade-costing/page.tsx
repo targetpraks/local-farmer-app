@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { 
   Factory, 
   Save, 
@@ -12,7 +11,6 @@ import {
   Users,
   Package,
   TrendingUp,
-  ArrowLeft,
   Calculator
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -68,7 +66,7 @@ const defaultConfig: ProductionCostConfig = {
   markupPercent: 100,
 }
 
-export default function ProductionCostsPage() {
+export default function TradeCostingPage() {
   const [config, setConfig] = useState<ProductionCostConfig>(defaultConfig)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -97,10 +95,10 @@ export default function ProductionCostsPage() {
     try {
       setIsSaving(true)
       localStorage.setItem('productionCostConfig', JSON.stringify(config))
-      setSuccessMessage('Production costs saved successfully!')
+      setSuccessMessage('Trade costs saved successfully!')
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
-      setError('Failed to save production costs')
+      setError('Failed to save trade costs')
     } finally {
       setIsSaving(false)
     }
@@ -123,19 +121,12 @@ export default function ProductionCostsPage() {
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link 
-              href="/suppliers"
-              className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            
             <div className="p-3 bg-white/20 rounded-xl">
               <Factory className="h-8 w-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">Production Costs</h1>
-              <p className="text-indigo-100 mt-1">Configure fixed production costs per tray</p>
+              <h1 className="text-3xl font-bold">Trade Costing</h1>
+              <p className="text-indigo-100 mt-1">Configure production costs per tray</p>
             </div>
           </div>
           
@@ -344,17 +335,7 @@ export default function ProductionCostsPage() {
 
           <Card title="Quick Links">
             <div className="space-y-2">
-              <Link 
-                href="/suppliers"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Users className="h-4 w-4 text-orange-600" />
-                </div>
-                <span className="font-medium text-gray-900">Back to Suppliers</span>
-              </Link>
-              
-              <Link 
+              <a 
                 href="/costing"
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
               >
@@ -362,7 +343,7 @@ export default function ProductionCostsPage() {
                   <Calculator className="h-4 w-4 text-cyan-600" />
                 </div>
                 <span className="font-medium text-gray-900">Seed Costing</span>
-              </Link>
+              </a>
             </div>
           </Card>
         </div>

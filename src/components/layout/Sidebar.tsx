@@ -6,8 +6,8 @@ import { cn } from '@/utils/cn'
 import {
   Leaf,
   FlaskConical,
-  Users,
-  TrendingUp,
+  Factory,
+  Beaker,
   CreditCard,
   Package,
   LayoutDashboard,
@@ -26,8 +26,8 @@ const navigation = [
   { name: 'Pricing', href: '/pricing', icon: CreditCard, color: 'from-green-500 to-emerald-500' },
   { name: 'Microgreens', href: '/microgreens', icon: Leaf, color: 'from-green-400 to-green-600' },
   { name: 'Mixes', href: '/mixes', icon: FlaskConical, color: 'from-amber-500 to-orange-500' },
-  { name: 'Costing', href: '/costing', icon: TrendingUp, color: 'from-cyan-500 to-blue-500' },
-  { name: 'Suppliers', href: '/suppliers', icon: Users, color: 'from-indigo-500 to-purple-500' },
+  { name: 'Seed Costing', href: '/costing', icon: Beaker, color: 'from-cyan-500 to-blue-500' },
+  { name: 'Trade Costing', href: '/trade-costing', icon: Factory, color: 'from-indigo-500 to-purple-500' },
   { name: 'Admin', href: '/admin', icon: Settings, color: 'from-gray-500 to-gray-600' },
 ]
 
