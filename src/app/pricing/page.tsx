@@ -32,7 +32,6 @@ export default function PricingPage() {
   const [selectedTier, setSelectedTier] = useState<'retail' | 'wholesale' | 'restaurant'>('retail')
   const [packagingType, setPackagingType] = useState('retail')
   const [selectedPackSize, setSelectedPackSize] = useState(100)
-  const [discountPercent, setDiscountPercent] = useState(0)
 
   useEffect(() => {
     fetchData()
@@ -67,9 +66,8 @@ export default function PricingPage() {
     if (!listPricePerGram) return 0
     
     const tierAdjustment = DEFAULT_TIER_MARKUPS[selectedTier] / 100
-    const discountAdjustment = discountPercent / 100
     
-    return listPricePerGram * (1 + tierAdjustment) * (1 - discountAdjustment)
+    return listPricePerGram * (1 + tierAdjustment)
   }
 
   const getPackagingCost = () => {
@@ -138,16 +136,19 @@ export default function PricingPage() {
       {error && <ErrorMessage message={error} onRetry={fetchData} />}
 
       <Card title="Pricing Controls" subtitle="Customize your pricing">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-blue-50 rounded-xl p-4">
-            <label className="block text-sm font-semibold text-blue-900 mb-3">Customer Tier</label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+            <label className="block text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Customer Tier
+            </label>
             <div className="flex rounded-lg bg-white shadow-sm p-1 border border-blue-200">
               {(['retail', 'wholesale', 'restaurant'] as const).map((tier) => (
                 <button
                   key={tier}
                   onClick={() => setSelectedTier(tier)}
                   className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                    selectedTier === tier ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600'
+                    selectedTier === tier ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                   }`}
                 >
                   {getTierIcon(tier)}
@@ -155,15 +156,23 @@ export default function PricingPage() {
                 </button>
               ))}
             </div>
+            <div className="mt-2 text-xs text-blue-600">
+              {selectedTier === 'retail' && 'List price as calculated'}
+              {selectedTier === 'wholesale' && '20% discount from list'}
+              {selectedTier === 'restaurant' && '10% discount from list'}
+            </div>
           </div>
 
-          <div className="bg-amber-50 rounded-xl p-4">
-            <label className="block text-sm font-semibold text-amber-900 mb-3">Packaging Type</label>
+          <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+            <label className="block text-sm font-semibold text-amber-900 mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Packaging Type
+            </label>
             <div className="flex rounded-lg bg-white shadow-sm p-1 border border-amber-200">
               <button
                 onClick={() => setPackagingType('retail')}
                 className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                  packagingType === 'retail' ? 'bg-amber-500 text-white shadow-md' : 'text-gray-600'
+                  packagingType === 'retail' ? 'bg-amber-500 text-white shadow-md' : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
                 }`}
               >
                 <ShoppingCart className="h-4 w-4 mr-1.5" />
@@ -172,45 +181,39 @@ export default function PricingPage() {
               <button
                 onClick={() => setPackagingType('wholesale')}
                 className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                  packagingType === 'wholesale' ? 'bg-amber-500 text-white shadow-md' : 'text-gray-600'
+                  packagingType === 'wholesale' ? 'bg-amber-500 text-white shadow-md' : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
                 }`}
               >
                 <Package className="h-4 w-4 mr-1.5" />
                 Wholesale
               </button>
             </div>
+            <div className="mt-2 text-xs text-amber-700">
+              {packagingType === 'retail' ? 'Clamshell packaging' : 'Polypack packaging'}
+            </div>
           </div>
 
-          <div className="bg-purple-50 rounded-xl p-4">
-            <label className="block text-sm font-semibold text-purple-900 mb-3">Pack Size</label>
+          <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+            <label className="block text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Pack Size
+            </label>
             <div className="flex rounded-lg bg-white shadow-sm p-1 border border-purple-200">
               {PACK_SIZES.map((size) => (
                 <button
                   key={size.grams}
                   onClick={() => setSelectedPackSize(size.grams)}
                   className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                    selectedPackSize === size.grams ? 'bg-purple-600 text-white shadow-md' : 'text-gray-600'
+                    selectedPackSize === size.grams ? 'bg-purple-600 text-white shadow-md' : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
                   }`}
                 >
                   {size.grams}g
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="bg-rose-50 rounded-xl p-4">
-            <Input
-              label="Discount (%)"
-              type="number"
-              value={discountPercent}
-              onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-              hint="Special offer"
-            />
-            {discountPercent > 0 && (
-              <div className="mt-2 text-xs text-rose-600 font-medium">
-                {discountPercent}% off applied!
-              </div>
-            )}
+            <div className="mt-2 text-xs text-purple-700">
+              {PACK_SIZES.find(s => s.grams === selectedPackSize)?.packaging}
+            </div>
           </div>
         </div>
       </Card>
