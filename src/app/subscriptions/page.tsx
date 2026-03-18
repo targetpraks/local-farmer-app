@@ -256,7 +256,7 @@ export default function SubscriptionsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {mix.components?.map((comp) => (
+                        {mix.components?.map((comp: any) => (
                           <Badge key={comp.id} className="bg-amber-100 text-amber-800">
                             {comp.microgreen?.name} ({comp.percentage}%)
                           </Badge>
