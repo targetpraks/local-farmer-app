@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Search, Bell, User, Menu } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { GlobalSearch } from '@/components/GlobalSearch'
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
@@ -47,28 +48,19 @@ export function Header() {
         <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
       </div>
 
-      {/* Search */}
-      <div className="hidden md:flex flex-1">
-        <div className="relative max-w-md flex-1">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
-          </div>
-          <input
-            type="search"
-            name="search"
-            id="search"
-            className="block w-full rounded-md border-0 py-1.5 pl-10 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-green-600 sm:text-sm sm:leading-6"
-            placeholder="Search..."
-          />
-        </div>
+      {/* Global Search */}
+      <div className="hidden md:flex flex-1 justify-center">
+        <GlobalSearch />
       </div>
 
       {/* Right side actions */}
       <div className="flex items-center gap-x-4 lg:gap-x-6">
         {/* Notifications */}
-        <button type="button" className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
+        <button type="button" className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500 relative">
           <span className="sr-only">View notifications</span>
           <Bell className="h-6 w-6" aria-hidden="true" />
+          {/* Notification badge */}
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
         </button>
 
         {/* Separator */}
@@ -77,8 +69,8 @@ export function Header() {
         {/* Profile */}
         <button type="button" className="-m-1.5 p-1.5 text-gray-400 hover:text-gray-500">
           <span className="sr-only">Your profile</span>
-          <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-            <User className="h-5 w-5 text-green-600" />
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-medium text-sm">
+            RM
           </div>
         </button>
       </div>
