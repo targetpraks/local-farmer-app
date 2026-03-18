@@ -43,6 +43,7 @@ interface ProductionCostConfig {
   electricityCostPerTray: number
   laborCostPerTray: number
   markupPercent: number
+  updatedAt?: string
 }
 
 const defaultProductionConfig: ProductionCostConfig = {
@@ -66,6 +67,8 @@ export default function SeedCostingPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false)
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [showRecalculateWarning, setShowRecalculateWarning] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -75,6 +78,15 @@ export default function SeedCostingPage() {
       .then(result => {
         if (result.data) {
           setProductionConfig({ ...defaultProductionConfig, ...result.data })
+          // Check if production costs were updated after our last save
+          const configUpdatedAt = result.data.updatedAt ? new Date(result.data.updatedAt) : null
+          const savedAt = localStorage.getItem('seedCostingLastSaved')
+          if (configUpdatedAt && savedAt) {
+            const savedDate = new Date(savedAt)
+            if (configUpdatedAt > savedDate) {
+              setShowRecalculateWarning(true)
+            }
+          }
         }
       })
       .catch(err => console.error('Failed to load production costs:', err))
@@ -173,6 +185,10 @@ export default function SeedCostingPage() {
       })
 
       await Promise.all(savePromises)
+      const now = new Date()
+      setLastSavedAt(now)
+      localStorage.setItem('seedCostingLastSaved', now.toISOString())
+      setShowRecalculateWarning(false)
       setSuccessMessage('All costs saved successfully! Seed + Production + Markup = List Price')
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
@@ -180,6 +196,18 @@ export default function SeedCostingPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const recalculateAllPrices = () => {
+    // Force recalculation of all list prices with current production config
+    setMicrogreens(prev => prev.map(m => ({
+      ...m,
+      // Trigger a re-render by updating a property
+      _recalculated: Date.now()
+    })))
+    setShowRecalculateWarning(false)
+    setSuccessMessage('All prices recalculated with current Trade Costing values')
+    setTimeout(() => setSuccessMessage(null), 3000)
   }
 
   const exportToCSV = () => {
@@ -284,6 +312,29 @@ export default function SeedCostingPage() {
       )}
 
       {error && <ErrorMessage message={error} onRetry={fetchData} />}
+
+      {/* Recalculate Warning */}
+      {showRecalculateWarning && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-amber-800 font-medium">
+                Trade Costing has been updated since you last saved prices
+              </p>
+              <p className="text-amber-700 text-sm mt-1">
+                Your list prices may be outdated. Recalculate to ensure accuracy.
+              </p>
+              <button
+                onClick={recalculateAllPrices}
+                className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+              >
+                Recalculate All Prices
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
