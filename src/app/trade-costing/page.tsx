@@ -31,12 +31,19 @@ interface ProductionCostConfig {
   waterCostPerTray: number
   electricityCostPerTray: number
   laborCostPerTray: number
-  packagingCostRetail: number
-  packagingCostWholesaleSmall: number
-  packagingCostWholesaleMedium: number
-  packagingCostWholesaleLarge: number
-  labelCost: number
   markupPercent: number
+  updatedAt?: string
+
+  // Retail Packaging Components
+  retailClamShellCost: number
+  retailInfoLabelCost: number
+  retailIdLabelCost: number
+
+  // Wholesale Packaging Components
+  wholesalePackagingSmall: number
+  wholesalePackagingMedium: number
+  wholesalePackagingLarge: number
+  wholesaleIdLabelCost: number
 }
 
 const defaultConfig: ProductionCostConfig = {
@@ -51,12 +58,18 @@ const defaultConfig: ProductionCostConfig = {
   waterCostPerTray: 1,
   electricityCostPerTray: 2,
   laborCostPerTray: 5,
-  packagingCostRetail: 3,
-  packagingCostWholesaleSmall: 1.5,
-  packagingCostWholesaleMedium: 2,
-  packagingCostWholesaleLarge: 3,
-  labelCost: 0.5,
   markupPercent: 100,
+
+  // Retail Packaging Components
+  retailClamShellCost: 3,
+  retailInfoLabelCost: 0.5,
+  retailIdLabelCost: 0.5,
+
+  // Wholesale Packaging Components
+  wholesalePackagingSmall: 1.5,
+  wholesalePackagingMedium: 2,
+  wholesalePackagingLarge: 3,
+  wholesaleIdLabelCost: 0.5,
 }
 
 export default function TradeCostingPage() {
@@ -313,52 +326,75 @@ export default function TradeCostingPage() {
             </div>
           </Card>
 
-          {/* Packaging Costs */}
-          <Card title="Packaging Costs" subtitle="Packaging and labeling costs">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Retail Packaging */}
+          <Card title="Retail Packaging" subtitle="Clam shell and labels for retail packs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <CostInput
-                label="Retail Packaging"
-                value={config.packagingCostRetail}
-                onChange={(v) => updateConfig('packagingCostRetail', v)}
+                label="Clam Shell"
+                value={config.retailClamShellCost}
+                onChange={(v) => updateConfig('retailClamShellCost', v)}
                 suffix="R"
                 icon={<Package className="h-4 w-4 text-blue-500" />}
-                description="Retail packaging cost per pack"
+                description="Cost of clam shell packaging"
               />
               
               <CostInput
-                label="Wholesale Small (60-100g)"
-                value={config.packagingCostWholesaleSmall}
-                onChange={(v) => updateConfig('packagingCostWholesaleSmall', v)}
+                label="Info Label"
+                value={config.retailInfoLabelCost}
+                onChange={(v) => updateConfig('retailInfoLabelCost', v)}
                 suffix="R"
                 icon={<Package className="h-4 w-4 text-green-500" />}
-                description="Wholesale packaging for small packs"
+                description="Information label per pack"
               />
               
               <CostInput
-                label="Wholesale Medium (250-500g)"
-                value={config.packagingCostWholesaleMedium}
-                onChange={(v) => updateConfig('packagingCostWholesaleMedium', v)}
-                suffix="R"
-                icon={<Package className="h-4 w-4 text-amber-500" />}
-                description="Wholesale packaging for medium packs"
-              />
-              
-              <CostInput
-                label="Wholesale Large (1-5kg)"
-                value={config.packagingCostWholesaleLarge}
-                onChange={(v) => updateConfig('packagingCostWholesaleLarge', v)}
+                label="ID Label"
+                value={config.retailIdLabelCost}
+                onChange={(v) => updateConfig('retailIdLabelCost', v)}
                 suffix="R"
                 icon={<Package className="h-4 w-4 text-purple-500" />}
-                description="Wholesale packaging for large packs"
+                description="ID label per pack"
+              />
+            </div>
+          </Card>
+
+          {/* Wholesale Packaging */}
+          <Card title="Wholesale Packaging" subtitle="Packaging and ID label for wholesale packs">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <CostInput
+                label="Small (60-100g)"
+                value={config.wholesalePackagingSmall}
+                onChange={(v) => updateConfig('wholesalePackagingSmall', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-green-500" />}
+                description="Packaging for small wholesale packs"
               />
               
               <CostInput
-                label="Label Cost"
-                value={config.labelCost}
-                onChange={(v) => updateConfig('labelCost', v)}
+                label="Medium (250-500g)"
+                value={config.wholesalePackagingMedium}
+                onChange={(v) => updateConfig('wholesalePackagingMedium', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-amber-500" />}
+                description="Packaging for medium wholesale packs"
+              />
+              
+              <CostInput
+                label="Large (1-5kg)"
+                value={config.wholesalePackagingLarge}
+                onChange={(v) => updateConfig('wholesalePackagingLarge', v)}
+                suffix="R"
+                icon={<Package className="h-4 w-4 text-purple-500" />}
+                description="Packaging for large wholesale packs"
+              />
+              
+              <CostInput
+                label="ID Label"
+                value={config.wholesaleIdLabelCost}
+                onChange={(v) => updateConfig('wholesaleIdLabelCost', v)}
                 suffix="R"
                 icon={<Package className="h-4 w-4 text-gray-500" />}
-                description="Label cost per pack"
+                description="ID label per wholesale pack"
               />
             </div>
           </Card>

@@ -22,12 +22,16 @@ export async function GET() {
           waterCostPerTray: 1,
           electricityCostPerTray: 2,
           laborCostPerTray: 5,
-          packagingCostRetail: 3,
-          packagingCostWholesaleSmall: 1.5,
-          packagingCostWholesaleMedium: 2,
-          packagingCostWholesaleLarge: 3,
-          labelCost: 0.5,
           markupPercent: 100,
+          // Retail Packaging
+          retailClamShellCost: 3,
+          retailInfoLabelCost: 0.5,
+          retailIdLabelCost: 0.5,
+          // Wholesale Packaging
+          wholesalePackagingSmall: 1.5,
+          wholesalePackagingMedium: 2,
+          wholesalePackagingLarge: 3,
+          wholesaleIdLabelCost: 0.5,
         }
       })
     }
@@ -59,12 +63,16 @@ export async function POST(request: NextRequest) {
         waterCostPerTray: body.waterCostPerTray ?? 1,
         electricityCostPerTray: body.electricityCostPerTray ?? 2,
         laborCostPerTray: body.laborCostPerTray ?? 5,
-        packagingCostRetail: body.packagingCostRetail ?? 3,
-        packagingCostWholesaleSmall: body.packagingCostWholesaleSmall ?? 1.5,
-        packagingCostWholesaleMedium: body.packagingCostWholesaleMedium ?? 2,
-        packagingCostWholesaleLarge: body.packagingCostWholesaleLarge ?? 3,
-        labelCost: body.labelCost ?? 0.5,
         markupPercent: body.markupPercent ?? 100,
+        // Retail Packaging
+        retailClamShellCost: body.retailClamShellCost ?? 3,
+        retailInfoLabelCost: body.retailInfoLabelCost ?? 0.5,
+        retailIdLabelCost: body.retailIdLabelCost ?? 0.5,
+        // Wholesale Packaging
+        wholesalePackagingSmall: body.wholesalePackagingSmall ?? 1.5,
+        wholesalePackagingMedium: body.wholesalePackagingMedium ?? 2,
+        wholesalePackagingLarge: body.wholesalePackagingLarge ?? 3,
+        wholesaleIdLabelCost: body.wholesaleIdLabelCost ?? 0.5,
       }
     })
     
@@ -102,12 +110,16 @@ export async function PATCH(request: NextRequest) {
           waterCostPerTray: body.waterCostPerTray ?? 1,
           electricityCostPerTray: body.electricityCostPerTray ?? 2,
           laborCostPerTray: body.laborCostPerTray ?? 5,
-          packagingCostRetail: body.packagingCostRetail ?? 3,
-          packagingCostWholesaleSmall: body.packagingCostWholesaleSmall ?? 1.5,
-          packagingCostWholesaleMedium: body.packagingCostWholesaleMedium ?? 2,
-          packagingCostWholesaleLarge: body.packagingCostWholesaleLarge ?? 3,
-          labelCost: body.labelCost ?? 0.5,
           markupPercent: body.markupPercent ?? 100,
+          // Retail Packaging
+          retailClamShellCost: body.retailClamShellCost ?? 3,
+          retailInfoLabelCost: body.retailInfoLabelCost ?? 0.5,
+          retailIdLabelCost: body.retailIdLabelCost ?? 0.5,
+          // Wholesale Packaging
+          wholesalePackagingSmall: body.wholesalePackagingSmall ?? 1.5,
+          wholesalePackagingMedium: body.wholesalePackagingMedium ?? 2,
+          wholesalePackagingLarge: body.wholesalePackagingLarge ?? 3,
+          wholesaleIdLabelCost: body.wholesaleIdLabelCost ?? 0.5,
         }
       })
     } else {
@@ -126,12 +138,16 @@ export async function PATCH(request: NextRequest) {
           waterCostPerTray: body.waterCostPerTray,
           electricityCostPerTray: body.electricityCostPerTray,
           laborCostPerTray: body.laborCostPerTray,
-          packagingCostRetail: body.packagingCostRetail,
-          packagingCostWholesaleSmall: body.packagingCostWholesaleSmall,
-          packagingCostWholesaleMedium: body.packagingCostWholesaleMedium,
-          packagingCostWholesaleLarge: body.packagingCostWholesaleLarge,
-          labelCost: body.labelCost,
           markupPercent: body.markupPercent,
+          // Retail Packaging
+          retailClamShellCost: body.retailClamShellCost,
+          retailInfoLabelCost: body.retailInfoLabelCost,
+          retailIdLabelCost: body.retailIdLabelCost,
+          // Wholesale Packaging
+          wholesalePackagingSmall: body.wholesalePackagingSmall,
+          wholesalePackagingMedium: body.wholesalePackagingMedium,
+          wholesalePackagingLarge: body.wholesalePackagingLarge,
+          wholesaleIdLabelCost: body.wholesaleIdLabelCost,
         }
       })
     }

@@ -8,11 +8,10 @@ import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 
 interface ProductionConfig {
-  packagingCostRetail: number
-  packagingCostWholesaleSmall: number
-  packagingCostWholesaleMedium: number
-  packagingCostWholesaleLarge: number
-  labelCost: number
+  wholesalePackagingSmall: number
+  wholesalePackagingMedium: number
+  wholesalePackagingLarge: number
+  wholesaleIdLabelCost: number
 }
 
 const DURATION_DISCOUNTS = [
@@ -33,11 +32,10 @@ const SUBSCRIPTION_PACK_SIZES = [
 const DEFAULT_PACK_SIZE = 100
 
 const defaultConfig: ProductionConfig = {
-  packagingCostRetail: 3,
-  packagingCostWholesaleSmall: 1.5,
-  packagingCostWholesaleMedium: 2,
-  packagingCostWholesaleLarge: 3,
-  labelCost: 0.5,
+  wholesalePackagingSmall: 1.5,
+  wholesalePackagingMedium: 2,
+  wholesalePackagingLarge: 3,
+  wholesaleIdLabelCost: 0.5,
 }
 
 export default function SubscriptionsPage() {
@@ -70,9 +68,9 @@ export default function SubscriptionsPage() {
 
   const getPackagingCost = () => {
     // Subscriptions are wholesale
-    if (selectedPackSize <= 100) return config.packagingCostWholesaleSmall
-    if (selectedPackSize <= 500) return config.packagingCostWholesaleMedium
-    return config.packagingCostWholesaleLarge
+    if (selectedPackSize <= 100) return config.wholesalePackagingSmall
+    if (selectedPackSize <= 500) return config.wholesalePackagingMedium
+    return config.wholesalePackagingLarge
   }
 
   const calculatePrice = (listPricePerGram: number) => {
@@ -80,7 +78,7 @@ export default function SubscriptionsPage() {
     const basePrice = listPricePerGram * selectedPackSize
     const discountMultiplier = 1 - (selectedDuration.discount / 100)
     const packagingCost = getPackagingCost()
-    const labelCost = config.labelCost
+    const labelCost = config.wholesaleIdLabelCost
     return (basePrice * discountMultiplier) + packagingCost + labelCost
   }
 
@@ -155,7 +153,7 @@ export default function SubscriptionsPage() {
           </div>
           <div className="flex justify-between">
             <span>Label Cost:</span>
-            <span className="font-medium">R{config.labelCost.toFixed(2)}</span>
+            <span className="font-medium">R{config.wholesaleIdLabelCost.toFixed(2)}</span>
           </div>
         </div>
       </Card>

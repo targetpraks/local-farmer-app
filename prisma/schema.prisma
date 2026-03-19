@@ -474,17 +474,19 @@ model ProductionCostConfig {
   // Labor costs
   laborCostPerTray Float @default(5)
   
-  // Packaging costs
-  packagingCostRetail      Float @default(3)
-  packagingCostWholesaleSmall Float @default(1.5)  // 60-100g
-  packagingCostWholesaleMedium Float @default(2)  // 250-500g
-  packagingCostWholesaleLarge Float @default(3)   // 1kg-5kg
-  
-  // Label cost
-  labelCost Float @default(0.5)
-  
   // Default markup
   markupPercent Float @default(100)
+  
+  // Retail Packaging Components
+  retailClamShellCost Float @default(3)
+  retailInfoLabelCost Float @default(0.5)
+  retailIdLabelCost   Float @default(0.5)
+  
+  // Wholesale Packaging Components
+  wholesalePackagingSmall Float @default(1.5)
+  wholesalePackagingMedium Float @default(2)
+  wholesalePackagingLarge Float @default(3)
+  wholesaleIdLabelCost   Float @default(0.5)
   
   // Timestamps
   createdAt DateTime @default(now())

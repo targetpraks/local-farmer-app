@@ -8,19 +8,27 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 
 interface ProductionConfig {
-  packagingCostRetail: number
-  packagingCostWholesaleSmall: number
-  packagingCostWholesaleMedium: number
-  packagingCostWholesaleLarge: number
-  labelCost: number
+  // Retail Packaging Components
+  retailClamShellCost: number
+  retailInfoLabelCost: number
+  retailIdLabelCost: number
+  // Wholesale Packaging Components
+  wholesalePackagingSmall: number
+  wholesalePackagingMedium: number
+  wholesalePackagingLarge: number
+  wholesaleIdLabelCost: number
 }
 
 const DEFAULT_CONFIG: ProductionConfig = {
-  packagingCostRetail: 3,
-  packagingCostWholesaleSmall: 1.5,
-  packagingCostWholesaleMedium: 2,
-  packagingCostWholesaleLarge: 3,
-  labelCost: 0.5,
+  // Retail
+  retailClamShellCost: 3,
+  retailInfoLabelCost: 0.5,
+  retailIdLabelCost: 0.5,
+  // Wholesale
+  wholesalePackagingSmall: 1.5,
+  wholesalePackagingMedium: 2,
+  wholesalePackagingLarge: 3,
+  wholesaleIdLabelCost: 0.5,
 }
 
 interface PricingTier {
@@ -93,14 +101,19 @@ export default function PricingPage() {
   }
 
   const getPackagingCost = () => {
-    if (packagingType === 'retail') return config.packagingCostRetail
+    if (packagingType === 'retail') return config.retailClamShellCost
     // Wholesale packaging costs by pack size
-    if (selectedPackSize <= 100) return config.packagingCostWholesaleSmall
-    if (selectedPackSize <= 500) return config.packagingCostWholesaleMedium
-    return config.packagingCostWholesaleLarge
+    if (selectedPackSize <= 100) return config.wholesalePackagingSmall
+    if (selectedPackSize <= 500) return config.wholesalePackagingMedium
+    return config.wholesalePackagingLarge
   }
 
-  const getLabelCost = () => config.labelCost
+  const getLabelCost = () => {
+    if (packagingType === 'retail') {
+      return config.retailInfoLabelCost + config.retailIdLabelCost
+    }
+    return config.wholesaleIdLabelCost
+  }
 
   const calculatePackPrice = (microgreen: { listPricePerGram?: number }) => {
     const listPricePerGram = microgreen.listPricePerGram || 0
