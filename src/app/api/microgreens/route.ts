@@ -17,6 +17,16 @@ const microgreenSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
+  const start = Date.now()
+  const log = (msg: string) => {
+    const line = `[${new Date().toISOString()}] ${msg}\n`
+    try {
+      require('fs').appendFileSync('/tmp/microgreens-api.log', line)
+    } catch {}
+    console.log(line)
+  }
+  
+  log('✅ API hit')
   try {
     // Use request.nextUrl instead of constructing URL from request.url to avoid dynamic server usage
     const { searchParams } = new URL(request.url)
