@@ -253,27 +253,34 @@ export default function PricingPage() {
             </div>
           </div>
 
-          <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-            <label className="block text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Pack Size
-            </label>
-            <div className="flex rounded-lg bg-white shadow-sm p-1 border border-purple-200">
+          <Card title="Select Pack Size" subtitle="Choose your pack size">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
               {PACK_SIZES.map((size) => (
                 <button
                   key={size.grams}
                   onClick={() => setSelectedPackSize(size.grams)}
-                  className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  className={`p-2 rounded-xl border-2 transition-all text-center ${
                     selectedPackSize === size.grams
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                      ? 'bg-purple-100 border-purple-500 text-purple-700 shadow-md'
+                      : 'bg-gray-50 border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  {size.grams}g
+                  <div className="text-sm font-bold">{size.grams}g</div>
                 </button>
               ))}
             </div>
-          </div>
+            
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+              <div className="flex justify-between">
+                <span>Packaging Cost:</span>
+                <span className="font-medium">R{getPackagingCost().toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Label Cost:</span>
+                <span className="font-medium">R{getLabelCost().toFixed(2)}</span>
+              </div>
+            </div>
+          </Card>
         </div>
       </Card>
 

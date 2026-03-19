@@ -82,6 +82,9 @@ export default function AdminPage() {
   const [exportEntity, setExportEntity] = useState('')
   const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('json')
   const [isExporting, setIsExporting] = useState(false)
+  
+  // Reset state
+  const [isResetting, setIsResetting] = useState(false)
 
   useEffect(() => {
     fetchStats()
@@ -182,6 +185,31 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'Failed to export data')
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const handleResetProductionConfig = async () => {
+    if (!window.confirm('Are you sure you want to reset production cost configuration to defaults? This cannot be undone.')) {
+      return
+    }
+
+    try {
+      setIsResetting(true)
+      setError(null)
+
+      const response = await fetch('/api/admin/reset/production-config', {
+        method: 'POST',
+      })
+
+      if (!response.ok) throw new Error('Failed to reset production config')
+
+      // Refresh stats
+      await fetchStats()
+      alert('Production configuration reset to defaults successfully!')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset production config')
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -364,6 +392,27 @@ export default function AdminPage() {
           </div>
         </Card>
       </div>
+
+      {/* Reset Data */}
+      <Card title="Reset Data" subtitle="Restore default configuration" className="border-red-200">
+        <div className="space-y-4">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <h4 className="font-medium text-red-800 mb-2">Production Cost Configuration</h4>
+            <p className="text-sm text-red-700 mb-3">
+              Reset all production cost settings (tray, materials, packaging, labels) to default values.
+              This action cannot be undone.
+            </p>
+            <Button
+              onClick={handleResetProductionConfig}
+              variant="danger"
+              size="sm"
+              disabled={isResetting}
+            >
+              {isResetting ? 'Resetting...' : 'Reset Production Costs'}
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {/* System Info */}
       <Card title="System Information" subtitle="Application details">
