@@ -10,6 +10,9 @@ const EXPORTABLE_ENTITIES = [
   'users',
 ]
 
+// Force dynamic rendering to avoid static generation errors
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
