@@ -72,7 +72,7 @@ interface PricingData {
 }
 
 export default function PricingPage() {
-  const [activeTab, setActiveTab] = useState<'microgreens'|'pricing'>('microgreens')
+  const [activeTab, setActiveTab] = useState<'microgreens'|'mushrooms'>('microgreens')
   const [microgreens, setMicrogreens] = useState<any[]>([])
   const [tiers, setTiers] = useState<PricingTier[]>(DEFAULT_TIERS)
   const [config, setConfig] = useState<ProductionConfig>(DEFAULT_CONFIG)
@@ -239,7 +239,7 @@ export default function PricingPage() {
         <button
           onClick={() => setActiveTab('pricing')}
           className={`flex items-center justify-center flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-            activeTab === 'pricing'
+            activeTab === 'mushrooms'
               ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
           }`}
@@ -407,7 +407,7 @@ export default function PricingPage() {
       </>
       )}
 
-      {activeTab === 'pricing' && (
+      {activeTab === 'mushrooms' && (
         <>
           <Card title="Mushroom Variety Pricing" subtitle="Substrate cost: Magic Mix @ R16.95/kg">
             <div className="overflow-x-auto">
