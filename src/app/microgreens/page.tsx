@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus, Edit, Trash2, Leaf, Calculator, TrendingUp, FlaskConical } from 'lucide-react'
@@ -13,6 +13,250 @@ import { EmptyState } from '@/components/EmptyState'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Microgreen, PaginatedResponse } from '@/types'
 
+// ─── Inline Edit Cell ───────────────────────────────────────────────────────
+interface InlineEditCellProps {
+  value: number
+  suffix?: string
+  onSave: (value: number) => Promise<void>
+}
+
+function InlineEditCell({ value, suffix, onSave }: InlineEditCellProps) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  const commit = async () => {
+    const num = parseFloat(draft)
+    if (isNaN(num) || num < 0) {
+      setDraft(String(value))
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(num)
+    } finally {
+      setSaving(false)
+      setEditing(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') commit()
+    if (e.key === 'Escape') {
+      setDraft(String(value))
+      setEditing(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        min="0"
+        step="any"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+        className="w-20 px-2 py-1 text-sm text-right border border-amber-400 rounded-md bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        setEditing(true)
+      }}
+      title="Click to edit"
+      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 transition-colors"
+    >
+      {saving ? (
+        <span className="text-amber-500 italic">…</span>
+      ) : (
+        <>
+          <span className="w-2 h-2 bg-amber-600 rounded-full mr-1.5 flex-shrink-0"></span>
+          {value}{suffix}
+        </>
+      )}
+    </button>
+  )
+}
+
+// ─── Inline Edit Cell (Green variant for Yield) ─────────────────────────────
+interface InlineEditCellGreenProps {
+  value: number
+  suffix?: string
+  onSave: (value: number) => Promise<void>
+}
+
+function InlineEditCellGreen({ value, suffix, onSave }: InlineEditCellGreenProps) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  const commit = async () => {
+    const num = parseFloat(draft)
+    if (isNaN(num) || num < 0) {
+      setDraft(String(value))
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(num)
+    } finally {
+      setSaving(false)
+      setEditing(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') commit()
+    if (e.key === 'Escape') {
+      setDraft(String(value))
+      setEditing(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        min="0"
+        step="any"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+        className="w-20 px-2 py-1 text-sm text-right border border-green-400 rounded-md bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        setEditing(true)
+      }}
+      title="Click to edit"
+      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200 hover:bg-green-200 transition-colors"
+    >
+      {saving ? (
+        <span className="text-green-500 italic">…</span>
+      ) : (
+        <>
+          <span className="w-2 h-2 bg-green-600 rounded-full mr-1.5 flex-shrink-0"></span>
+          {value}{suffix}
+        </>
+      )}
+    </button>
+  )
+}
+
+// ─── Inline Edit Cell (Blue variant for Grow Time) ─────────────────────────
+interface InlineEditCellBlueProps {
+  value: number
+  suffix?: string
+  onSave: (value: number) => Promise<void>
+}
+
+function InlineEditCellBlue({ value, suffix, onSave }: InlineEditCellBlueProps) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  const commit = async () => {
+    const num = parseFloat(draft)
+    if (isNaN(num) || num < 0) {
+      setDraft(String(value))
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(num)
+    } finally {
+      setSaving(false)
+      setEditing(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') commit()
+    if (e.key === 'Escape') {
+      setDraft(String(value))
+      setEditing(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        min="0"
+        step="any"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+        className="w-20 px-2 py-1 text-sm text-right border border-blue-400 rounded-md bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        setEditing(true)
+      }}
+      title="Click to edit"
+      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 transition-colors"
+    >
+      {saving ? (
+        <span className="text-blue-500 italic">…</span>
+      ) : (
+        <>
+          <span className="w-2 h-2 bg-blue-600 rounded-full mr-1.5 flex-shrink-0"></span>
+          {value}{suffix}
+        </>
+      )}
+    </button>
+  )
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 export default function MicrogreensPage() {
   const router = useRouter()
   const [microgreens, setMicrogreens] = useState<Microgreen[]>([])
@@ -41,9 +285,44 @@ export default function MicrogreensPage() {
     }
   }
 
+  // Inline edit handlers ────────────────────────────────────────────────────
+  const handleEditSeeding = async (id: string, value: number) => {
+    // Optimistic update
+    setMicrogreens((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, seedingDensity: value } : m))
+    )
+    await fetch(`/api/microgreens/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seedingDensity: value }),
+    })
+  }
+
+  const handleEditYield = async (id: string, value: number) => {
+    setMicrogreens((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, yieldPerTray: value } : m))
+    )
+    await fetch(`/api/microgreens/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yieldPerTray: value }),
+    })
+  }
+
+  const handleEditGrowTime = async (id: string, value: number) => {
+    setMicrogreens((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, growTime: value } : m))
+    )
+    await fetch(`/api/microgreens/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ growTime: value }),
+    })
+  }
+
   const handleDelete = async () => {
     if (!deleteId) return
-    
+
     try {
       setIsDeleting(true)
       const response = await fetch(`/api/microgreens/${deleteId}`, {
@@ -63,43 +342,51 @@ export default function MicrogreensPage() {
     if (rate < 400) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200', dot: 'bg-red-600', label: 'Terrible' }
     if (rate < 600) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200', dot: 'bg-yellow-600', label: 'OK' }
     if (rate < 800) return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200', dot: 'bg-blue-600', label: 'Good' }
-    return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200', dot: 'bg-green-600', label: 'Great' }
+    return { bg: 'bg-green-100', text: 'text-green-800', border: 'bg-green-200', dot: 'bg-green-600', label: 'Great' }
   }
 
   const columns = [
     { key: 'name', header: 'Name', sortable: true },
     { key: 'variety', header: 'Variety', sortable: true },
-    { 
-      key: 'growTime', 
-      header: 'Grow Time', 
-      sortable: true,
-      render: (row: Microgreen) => `${row.growTime} days`
-    },
-    { 
-      key: 'seedingDensity', 
-      header: 'Seeding', 
+    {
+      key: 'growTime',
+      header: 'Grow Time',
       sortable: true,
       render: (row: Microgreen) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800 border border-amber-200">
-          <span className="w-2 h-2 bg-amber-600 rounded-full mr-1.5"></span>
-          {row.seedingDensity}g/tray
-        </span>
-      )
+        <InlineEditCellBlue
+          value={row.growTime}
+          suffix=" days"
+          onSave={(v) => handleEditGrowTime(row.id, v)}
+        />
+      ),
     },
-    { 
-      key: 'yieldPerTray', 
-      header: 'Yield', 
+    {
+      key: 'seedingDensity',
+      header: 'Seeding',
       sortable: true,
       render: (row: Microgreen) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
-          <span className="w-2 h-2 bg-green-600 rounded-full mr-1.5"></span>
-          {row.yieldPerTray}g
-        </span>
-      )
+        <InlineEditCell
+          value={row.seedingDensity}
+          suffix="g/tray"
+          onSave={(v) => handleEditSeeding(row.id, v)}
+        />
+      ),
     },
-    { 
-      key: 'yieldRate', 
-      header: 'Yield Rate', 
+    {
+      key: 'yieldPerTray',
+      header: 'Yield',
+      sortable: true,
+      render: (row: Microgreen) => (
+        <InlineEditCellGreen
+          value={row.yieldPerTray}
+          suffix="g"
+          onSave={(v) => handleEditYield(row.id, v)}
+        />
+      ),
+    },
+    {
+      key: 'yieldRate',
+      header: 'Yield Rate',
       sortable: true,
       render: (row: Microgreen) => {
         const rate = Math.round((row.yieldPerTray / row.seedingDensity) * 100)
@@ -110,7 +397,7 @@ export default function MicrogreensPage() {
             {rate}% ({colors.label})
           </span>
         )
-      }
+      },
     },
     {
       key: 'actions',
@@ -165,7 +452,7 @@ export default function MicrogreensPage() {
             </Button>
           </Link>
         </div>
-        
+
         {/* Quick action links */}
         <div className="flex gap-3 mt-4">
           <Link href="/costing" className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors">
@@ -193,7 +480,7 @@ export default function MicrogreensPage() {
           action={{
             label: 'Add Microgreen',
             href: '/microgreens/new',
-            onClick: () => {}
+            onClick: () => {},
           }}
         />
       ) : (
