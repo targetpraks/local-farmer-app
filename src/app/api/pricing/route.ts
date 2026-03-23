@@ -53,11 +53,21 @@ export async function GET(request: NextRequest) {
           include: { microgreen: true }
         })
 
-        if (!costing) {
-          return NextResponse.json({ error: 'No costing found for this microgreen' }, { status: 404 })
+        if (costing) {
+          baseCost = costing.costPerGram ?? 0
+        } else {
+          // Fallback: try to get listPricePerGram directly from Microgreen table
+          // This happens when SeedCostingClient saves costs directly to Microgreen
+          const microgreen = await prisma.microgreen.findUnique({
+            where: { id: microgreenId },
+            select: { listPricePerGram: true }
+          })
+          if (microgreen?.listPricePerGram) {
+            baseCost = microgreen.listPricePerGram
+          } else {
+            return NextResponse.json({ error: 'No costing found for this microgreen' }, { status: 404 })
+          }
         }
-
-        baseCost = costing.costPerGram ?? 0
       }
     } else if (mixId) {
       // 1. Look for a CustomerTierPrice override
@@ -190,6 +200,16 @@ export async function POST(request: NextRequest) {
         } else if (costing) {
           // MicrogreenCosting has costPerGram directly
           baseCost = costing.costPerGram ?? 0
+        } else {
+          // Fallback: try to get listPricePerGram directly from Microgreen table
+          // This happens when SeedCostingClient saves costs directly to Microgreen
+          const microgreen = await prisma.microgreen.findUnique({
+            where: { id: microgreenId },
+            select: { listPricePerGram: true }
+          })
+          if (microgreen?.listPricePerGram) {
+            baseCost = microgreen.listPricePerGram
+          }
         }
 
         let markupPercent = 0
@@ -256,6 +276,8 @@ export async function POST(request: NextRequest) {
             baseCost = costing.costPerServing ?? 0
           }
         }
+        // Note: Mix pricing falls back to 0 if no MixCosting exists - 
+        // mix prices should be set up via MixCosting records
 
         let markupPercent = 0
         let finalPrice = customPrice ?? baseCost
