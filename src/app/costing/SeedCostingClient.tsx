@@ -376,7 +376,7 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
                           <input
                             type="number"
                             value={m.prices.price1.qty || ''}
-                            onChange={(e) => updatePrice(m.id, 'price1', 'qty', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(m.id, 'price1', 'qty', parseFloat((e.target.value || '').replace(',', '.')) || 0)}
                             placeholder="100"
                             className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
                           />
@@ -385,7 +385,7 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
                             type="number"
                             step="0.01"
                             value={m.prices.price1.unitPrice || ''}
-                            onChange={(e) => updatePrice(m.id, 'price1', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(m.id, 'price1', 'unitPrice', parseFloat((e.target.value || '').replace(',', '.')) || 0)}
                             placeholder="0.00"
                             className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
                           />
@@ -404,7 +404,7 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
                           <input
                             type="number"
                             value={m.prices.price2.qty || ''}
-                            onChange={(e) => updatePrice(m.id, 'price2', 'qty', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(m.id, 'price2', 'qty', parseFloat((e.target.value || '').replace(',', '.')) || 0)}
                             placeholder="100"
                             className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
                           />
@@ -413,7 +413,7 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
                             type="number"
                             step="0.01"
                             value={m.prices.price2.unitPrice || ''}
-                            onChange={(e) => updatePrice(m.id, 'price2', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(m.id, 'price2', 'unitPrice', parseFloat((e.target.value || '').replace(',', '.')) || 0)}
                             placeholder="0.00"
                             className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
                           />
@@ -432,7 +432,7 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
                           <input
                             type="number"
                             value={m.prices.price3.qty || ''}
-                            onChange={(e) => updatePrice(m.id, 'price3', 'qty', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(m.id, 'price3', 'qty', parseFloat((e.target.value || '').replace(',', '.')) || 0)}
                             placeholder="100"
                             className="w-14 text-sm border border-gray-200 rounded px-1 py-1"
                           />
@@ -441,7 +441,7 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
                             type="number"
                             step="0.01"
                             value={m.prices.price3.unitPrice || ''}
-                            onChange={(e) => updatePrice(m.id, 'price3', 'unitPrice', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => updatePrice(m.id, 'price3', 'unitPrice', parseFloat((e.target.value || '').replace(',', '.')) || 0)}
                             placeholder="0.00"
                             className="w-16 text-sm border border-gray-200 rounded px-1 py-1"
                           />

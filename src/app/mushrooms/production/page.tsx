@@ -58,7 +58,7 @@ function NumberInput({
       <input
         type="number"
         value={value}
-        onChange={e => onChange(parseFloat(e.target.value) || 0)}
+        onChange={e => onChange(parseFloat((e.target.value || '').replace(',', '.')) || 0)}
         min={min}
         max={max}
         step={step}
