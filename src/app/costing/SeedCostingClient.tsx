@@ -181,7 +181,7 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
   }
 
   const exportToCSV = () => {
-    const headers = ['Microgreen', 'Variety', 'Seed Code', 'Seeding', 'Yield', 'P1 Qty', 'P1 Unit', 'P1/g', 'P2 Qty', 'P2 Unit', 'P2/g', 'P3 Qty', 'P3 Unit', 'P3/g', 'Best R/g', 'List R/g']
+    const headers = ['Microgreen', 'Variety', 'Seed Code', 'P1 Qty', 'P1 Unit', 'P1/g', 'P2 Qty', 'P2 Unit', 'P2/g', 'P3 Qty', 'P3 Unit', 'P3/g', 'Best R/g', 'List R/g']
     const rows = microgreens.map(m => {
       const listPricePerGram = calculateListPricePerGram(m)
       return [
@@ -337,8 +337,6 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase sticky left-0 bg-gray-50 z-10">Microgreen</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Seed Code</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Seeding</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Yield</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-blue-50">Price 1</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-green-50">Price 2</th>
                 <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase bg-purple-50">Price 3</th>
@@ -371,18 +369,6 @@ export default function SeedCostingClient({ initialMicrogreens, initialProductio
                     </td>
                     
                     <td className="px-4 py-3 text-sm text-gray-500 font-mono">{m.seedCode}</td>
-                    
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                        {m.seedingDensity}g
-                      </span>
-                    </td>
-                    
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {m.yieldPerTray}g
-                      </span>
-                    </td>
                     
                     <td className="px-2 py-3 bg-blue-50/50">
                       <div className="space-y-1">
