@@ -27,6 +27,16 @@ const DEFAULT_CONFIG: ProductionConfig = {
   wholesaleIdLabelCost: 0.5,
 }
 
+const SUBSTRATE_COST_PER_KG = 16.95
+
+const MUSHROOM_PRICES = [
+  { name: 'Pearl Oyster', wholesaleKg: 90, retailKg: 112, margin: 35 },
+  { name: 'Blue Oyster', wholesaleKg: 105, retailKg: 131, margin: 35 },
+  { name: 'Pink Oyster', wholesaleKg: 108, retailKg: 135, margin: 35 },
+  { name: 'Golden Oyster', wholesaleKg: 115, retailKg: 144, margin: 35 },
+  { name: 'King Oyster', wholesaleKg: 125, retailKg: 156, margin: 35 },
+]
+
 interface PricingTier {
   id: string
   name: string
@@ -62,6 +72,7 @@ interface PricingData {
 }
 
 export default function PricingPage() {
+  const [activeTab, setActiveTab] = useState<'microgreens'|'pricing'>('microgreens')
   const [microgreens, setMicrogreens] = useState<any[]>([])
   const [tiers, setTiers] = useState<PricingTier[]>(DEFAULT_TIERS)
   const [config, setConfig] = useState<ProductionConfig>(DEFAULT_CONFIG)
@@ -194,13 +205,13 @@ export default function PricingPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-orange-500 to-amber-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Sparkles className="h-8 w-8 text-yellow-300" />
             <div>
               <h1 className="text-3xl font-bold">Pricing Calculator</h1>
-              <p className="text-green-100 mt-1">Set your prices with confidence</p>
+              <p className="text-orange-100 mt-1">Set your prices with confidence</p>
             </div>
           </div>
           <Link href="/admin/pricing-tiers">
@@ -212,6 +223,34 @@ export default function PricingPage() {
         </div>
       </div>
 
+      {/* Product Type Tabs */}
+      <div className="flex space-x-1 rounded-xl bg-gray-100 p-1">
+        <button
+          onClick={() => setActiveTab('microgreens')}
+          className={`flex items-center justify-center flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+            activeTab === 'microgreens'
+              ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Leaf className="h-4 w-4 mr-2" />
+          🌱 Microgreens
+        </button>
+        <button
+          onClick={() => setActiveTab('pricing')}
+          className={`flex items-center justify-center flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+            activeTab === 'pricing'
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          🍄 Mushroom Pricing
+        </button>
+      </div>
+
+      {activeTab === 'microgreens' && (
+        <>
       <Card title="Pricing Controls" subtitle="Customize your pricing">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -365,6 +404,60 @@ export default function PricingPage() {
         <StatCard title={`Avg ${selectedPackSize}g Price`} value={`R${avgPackPrice.toFixed(2)}`} icon={<TrendingUp className="h-5 w-5 text-purple-500" />} color="bg-purple-50 border-purple-200" />
         <StatCard title="Current Tier" value={currentTier?.name || 'Retail'} icon={getTierIcon(selectedTier)} color="bg-blue-100 text-blue-800 border-blue-200" />
       </div>
+      </>
+      )}
+
+      {activeTab === 'pricing' && (
+        <>
+          <Card title="Mushroom Variety Pricing" subtitle="Substrate cost: Magic Mix @ R16.95/kg">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Variety</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Cost/kg</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Wholesale</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Retail</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase bg-orange-500">Margin</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {MUSHROOM_PRICES.map((mush) => (
+                    <tr key={mush.name} className="hover:bg-orange-50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center">
+                          <div className="h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center mr-3">
+                            <Sparkles className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="font-bold text-gray-900">{mush.name}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-gray-700">
+                        R{SUBSTRATE_COST_PER_KG.toFixed(2)}/kg
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">
+                        R{mush.wholesaleKg}/kg
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-bold text-green-600">
+                        R{mush.retailKg}/kg
+                      </td>
+                      <td className="px-4 py-3 text-right bg-orange-50">
+                        <span className="text-lg font-bold text-orange-700">{mush.margin}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 p-3 bg-orange-50 rounded-lg text-sm text-orange-800">
+              <p className="font-medium">Pricing basis:</p>
+              <p>• Substrate cost: Magic Mix @ R{SUBSTRATE_COST_PER_KG}/kg (low labor mushroom growing)</p>
+              <p>• Wholesale = Cost ÷ (1 − 0.35) = R{SUBSTRATE_COST_PER_KG.toFixed(2)} ÷ 0.65</p>
+              <p>• Retail = Wholesale × 1.25</p>
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   )
 }
