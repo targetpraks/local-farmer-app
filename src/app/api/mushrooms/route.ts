@@ -30,21 +30,24 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { varietyId, bagCount, inoculationDate, notes } = body
+  const { varietyId, notes } = body
 
-  if (!varietyId || !bagCount || !inoculationDate) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  if (!varietyId) {
+    return NextResponse.json({ error: 'Missing varietyId' }, { status: 400 })
   }
 
+  // Default batch: 10 bags, today's date — user manages actual batches via production tracking
+  const bagCount = 10
+  const inoculationDate = new Date()
   const substrateKg = bagCount * 2
-  const substrateCost = substrateKg * 16.95 // MAGIC_MIX_COST_PER_KG
+  const substrateCost = substrateKg * 16.95
   const batchCode = await nextBatchCode()
 
   const batch = await prisma.mushroomBatch.create({
     data: {
       batchCode,
       varietyId,
-      inoculationDate: new Date(inoculationDate),
+      inoculationDate,
       bagCount,
       substrateKg,
       substrateCost,
