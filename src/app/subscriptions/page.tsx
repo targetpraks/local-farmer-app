@@ -105,11 +105,14 @@ export default function SubscriptionsPage() {
 
   const calculatePrice = (listPricePerGram: number) => {
     if (!listPricePerGram) return 0
-    const basePrice = listPricePerGram * selectedPackSize
-    const discountMultiplier = 1 - (selectedDuration.discount / 100)
+    // Apply duration discount, then tier discount on the base price
+    const durationMultiplier = 1 - (selectedDuration.discount / 100)
+    const tierDiscount = selectedTier === 'retail' ? 0 : selectedTier === 'restaurant' ? 10 : 20
+    const tierMultiplier = 1 - (tierDiscount / 100)
+    const basePrice = listPricePerGram * selectedPackSize * durationMultiplier * tierMultiplier
     const packagingCost = getPackagingCost()
     const labelCost = config.wholesaleIdLabelCost
-    return (basePrice * discountMultiplier) + packagingCost + labelCost
+    return basePrice + packagingCost + labelCost
   }
 
   if (isLoading) {
@@ -215,7 +218,31 @@ export default function SubscriptionsPage() {
             </div>
           </Card>
 
-          <Card title="Microgreens Pricing" subtitle={`${selectedPackSize}g packs • ${selectedDuration.discount}% discount • Packaging: R${getPackagingCost().toFixed(2)}`}>
+          {/* Tier Selector */}
+          <Card title="Customer Tier" subtitle="Choose pricing tier for this view">
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { code: 'retail' as const, name: 'Retail', icon: Store, bgClass: 'bg-green-100 text-green-700 border-green-200', selected: selectedTier === 'retail' },
+                { code: 'restaurant' as const, name: 'Restaurant −10%', icon: UtensilsCrossed, bgClass: 'bg-amber-100 text-amber-700 border-amber-200', selected: selectedTier === 'restaurant' },
+                { code: 'wholesale' as const, name: 'Wholesale −20%', icon: Building2, bgClass: 'bg-purple-100 text-purple-700 border-purple-200', selected: selectedTier === 'wholesale' },
+              ].map((tier) => (
+                <button
+                  key={tier.code}
+                  onClick={() => setSelectedTier(tier.code)}
+                  className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${tier.bgClass} ${
+                    tier.selected ? 'border-current shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <tier.icon className="h-6 w-6" />
+                  <div className="text-left">
+                    <div className="text-sm font-bold">{tier.name}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Microgreens Pricing" subtitle={`${selectedPackSize}g packs • ${selectedDuration.discount}% duration • ${selectedTier === 'retail' ? 'Retail' : selectedTier === 'restaurant' ? 'Restaurant −10%' : 'Wholesale −20%'} • Packaging: R${getPackagingCost().toFixed(2)}`}>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
