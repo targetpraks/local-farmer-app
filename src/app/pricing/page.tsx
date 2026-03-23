@@ -38,8 +38,9 @@ const MUSHROOM_PACK_SIZES = [
 ]
 
 // Mushroom packaging costs loaded from /mushrooms/production localStorage (lf_production_costs_v1)
-function getMushroomPackagingCost(packSize: number, type: 'retail' | 'wholesale'): number {
-  const bag = mushroomConfig.growBagPrice ?? 10
+const MUSHROOM_DEFAULTS = { growBagPrice: 10, labourRate: 45, electricity: 2.5, overhead: 5, lossRate: 10, substrateKg: 20, substratePricePerKg: 16.95, labourHours: 2 }
+function getMushroomPackagingCost(packSize: number, type: 'retail' | 'wholesale', mushroomConfig: Record<string, number> = {}): number {
+  const bag = mushroomConfig['growBagPrice'] ?? MUSHROOM_DEFAULTS.growBagPrice
   if (type === 'wholesale') {
     if (packSize <= 100) return bag + 1.5
     if (packSize <= 500) return bag + 2
@@ -482,8 +483,8 @@ export default function PricingPage() {
                   <div className="text-lg font-bold capitalize">{type}</div>
                   <div className="text-xs mt-1 opacity-75">
                     {type === 'retail'
-                      ? `Clam shell + labels: R${getMushroomPackagingCost(selectedPackSize, 'retail').toFixed(2)}`
-                      : `Grow bag: R${getMushroomPackagingCost(selectedPackSize, 'wholesale').toFixed(2)}`}
+                      ? `Clam shell + labels: R${getMushroomPackagingCost(selectedPackSize, 'retail', mushroomConfig).toFixed(2)}`
+                      : `Grow bag: R${getMushroomPackagingCost(selectedPackSize, 'wholesale', mushroomConfig).toFixed(2)}`}
                   </div>
                 </button>
               ))}
@@ -510,7 +511,7 @@ export default function PricingPage() {
             <div className="mt-4 p-3 bg-orange-50 rounded-lg text-sm text-orange-800">
               <div className="flex justify-between">
                 <span>Grow Bag Cost ({MUSHROOM_PACKAGING_LABELS[selectedPackSize] || selectedPackSize + 'g'}):</span>
-                <span className="font-medium">R{getMushroomPackagingCost(selectedPackSize, 'retail').toFixed(2)}</span>
+                <span className="font-medium">R{getMushroomPackagingCost(selectedPackSize, 'retail', mushroomConfig).toFixed(2)}</span>
               </div>
             </div>
           </Card>
@@ -541,7 +542,7 @@ export default function PricingPage() {
                     const tierPricePerG = selectedTier === 'wholesale' ? wholesalePerG
                       : selectedTier === 'restaurant' ? restaurantPerG
                       : retailPerG
-                    const packPrice = (tierPricePerG * selectedPackSize) + getMushroomPackagingCost(selectedPackSize, packagingType as 'retail' | 'wholesale')
+                    const packPrice = (tierPricePerG * selectedPackSize) + getMushroomPackagingCost(selectedPackSize, packagingType as 'retail' | 'wholesale', mushroomConfig)
                     const bgColor = selectedTier === 'wholesale' ? 'bg-purple-50'
                       : selectedTier === 'restaurant' ? 'bg-amber-50'
                       : 'bg-green-50'
@@ -604,7 +605,7 @@ export default function PricingPage() {
             />
             <StatCard
               title={`${selectedPackSize}g Pack (Retail)`}
-              value={`R${((MAGIC_MIX_COST_PER_KG / 1000) * (MAGIC_MIX_COST_PER_KG / (1 - 35 / 100)) * 1.25 * selectedPackSize + getMushroomPackagingCost(selectedPackSize, 'retail')).toFixed(2)}`}
+              value={`R${((MAGIC_MIX_COST_PER_KG / 1000) * (MAGIC_MIX_COST_PER_KG / (1 - 35 / 100)) * 1.25 * selectedPackSize + getMushroomPackagingCost(selectedPackSize, 'retail', mushroomConfig)).toFixed(2)}`}
               icon={<Package className="h-5 w-5 text-green-500" />}
               color="bg-green-50 border-green-200"
             />
