@@ -16,7 +16,7 @@ import Image from 'next/image'
 const MICROGREENS_ITEMS = [
   { name: 'All Microgreens', href: '/microgreens', icon: Leaf },
   { name: 'New Microgreen', href: '/microgreens/new', icon: Leaf },
-  { name: 'Mixes', href: '/mixes', icon: FlaskConical },
+  { name: 'Mixes', href: '/microgreens/mixes', icon: FlaskConical },
 ]
 
 const MICROGREEN_COSTING_ITEMS = [
@@ -192,7 +192,7 @@ export function Sidebar() {
                 icon={Leaf}
                 items={MICROGREENS_ITEMS}
                 baseColor="from-green-500 to-green-600"
-                defaultOpen={pathname?.startsWith('/microgreens') || pathname?.startsWith('/mixes')}
+                defaultOpen={pathname?.startsWith('/microgreens') || pathname?.startsWith('/microgreens/mixes')}
               />
               <NavSection
                 title="Costing"
