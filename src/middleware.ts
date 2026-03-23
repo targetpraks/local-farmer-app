@@ -12,6 +12,7 @@ const SKIP_PATHS = [
   '/api/mixes',
   '/api/suppliers',
   '/api/pricing/tiers',
+  '/api/mushrooms/varieties',
 ]
 
 function extractToken(request: NextRequest): string | null {

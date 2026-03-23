@@ -28,14 +28,28 @@ const DEFAULT_CONFIG: ProductionConfig = {
 }
 
 const SUBSTRATE_COST_PER_KG = 16.95
+const MAGIC_MIX_COST_PER_KG = 16.95 // matches MAGIC_MIX_COST_PER_KG from lib/mushrooms/magicMix.ts
 
-const MUSHROOM_PRICES = [
-  { name: 'Pearl Oyster', wholesaleKg: 90, retailKg: 112, margin: 35 },
-  { name: 'Blue Oyster', wholesaleKg: 105, retailKg: 131, margin: 35 },
-  { name: 'Pink Oyster', wholesaleKg: 108, retailKg: 135, margin: 35 },
-  { name: 'Golden Oyster', wholesaleKg: 115, retailKg: 144, margin: 35 },
-  { name: 'King Oyster', wholesaleKg: 125, retailKg: 156, margin: 35 },
+const MUSHROOM_PACK_SIZES = [
+  { grams: 100, label: '100g' },
+  { grams: 250, label: '250g' },
+  { grams: 500, label: '500g' },
+  { grams: 1000, label: '1kg' },
 ]
+
+const MUSHROOM_PACKAGING_COSTS: Record<number, number> = {
+  100: 10,
+  250: 10,
+  500: 15,
+  1000: 20,
+}
+
+const MUSHROOM_PACKAGING_LABELS: Record<number, string> = {
+  100: 'Small (100g)',
+  250: 'Small (250g)',
+  500: 'Medium (500g)',
+  1000: 'Large (1kg)',
+}
 
 interface PricingTier {
   id: string
@@ -74,6 +88,7 @@ interface PricingData {
 export default function PricingPage() {
   const [activeTab, setActiveTab] = useState<'microgreens'|'mushrooms'>('microgreens')
   const [microgreens, setMicrogreens] = useState<any[]>([])
+  const [mushroomVarieties, setMushroomVarieties] = useState<any[]>([])
   const [tiers, setTiers] = useState<PricingTier[]>(DEFAULT_TIERS)
   const [config, setConfig] = useState<ProductionConfig>(DEFAULT_CONFIG)
   const [isLoading, setIsLoading] = useState(true)
@@ -87,7 +102,8 @@ export default function PricingPage() {
       fetch('/api/pricing/tiers').then(res => res.json()),
       fetch('/api/production-costs').then(res => res.json()),
       fetch('/api/microgreens?limit=100').then(res => res.json()),
-    ]).then(([tiersResult, configResult, microResult]) => {
+      fetch('/api/mushrooms/varieties').then(res => res.json()),
+    ]).then(([tiersResult, configResult, microResult, mushroomResult]) => {
       if (tiersResult.data && tiersResult.data.length > 0) {
         const sorted = [...tiersResult.data].sort((a: PricingTier, b: PricingTier) => {
           const order = ['retail', 'restaurant', 'wholesale']
@@ -99,6 +115,7 @@ export default function PricingPage() {
         setConfig({ ...DEFAULT_CONFIG, ...configResult.data })
       }
       setMicrogreens(microResult.data || [])
+      setMushroomVarieties(mushroomResult.data || [])
       setIsLoading(false)
     }).catch(err => {
       console.error('Failed to load data:', err)
@@ -237,7 +254,7 @@ export default function PricingPage() {
           🌱 Microgreens
         </button>
         <button
-          onClick={() => setActiveTab('pricing')}
+          onClick={() => setActiveTab('mushrooms')}
           className={`flex items-center justify-center flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
             activeTab === 'mushrooms'
               ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
@@ -409,53 +426,152 @@ export default function PricingPage() {
 
       {activeTab === 'mushrooms' && (
         <>
-          <Card title="Mushroom Variety Pricing" subtitle="Substrate cost: Magic Mix @ R16.95/kg">
+          {/* Mushroom tier selector */}
+          <Card title="Customer Tier" subtitle="Select pricing tier for mushrooms">
+            <div className="flex rounded-lg bg-white shadow-sm p-1 border border-gray-200">
+              {tiers.filter(t => t.isActive).map((tier) => (
+                <button
+                  key={tier.code}
+                  onClick={() => setSelectedTier(tier.code)}
+                  className={`flex items-center justify-center flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${getTierBg(tier.code, selectedTier === tier.code)}`}
+                >
+                  {getTierIcon(tier.code)}
+                  <span className="ml-1.5">{tier.name}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {(currentTier?.markupPercent ?? 0) > 0 && `+${currentTier?.markupPercent}% markup applied`}
+              {(currentTier?.markupPercent ?? 0) === 0 && 'List price (no adjustment)'}
+              {(currentTier?.markupPercent ?? 0) < 0 && `${currentTier?.markupPercent}% discount applied`}
+            </p>
+          </Card>
+
+          {/* Mushroom pack size selector */}
+          <Card title="Pack Size" subtitle="Select pack size for mushroom pricing">
+            <div className="grid grid-cols-4 gap-3">
+              {MUSHROOM_PACK_SIZES.map((size) => (
+                <button
+                  key={size.grams}
+                  onClick={() => setSelectedPackSize(size.grams)}
+                  className={`p-3 rounded-xl border-2 transition-all text-center ${
+                    selectedPackSize === size.grams
+                      ? 'bg-orange-100 border-orange-500 text-orange-700 shadow-md'
+                      : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="text-lg font-bold">{size.label}</div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 p-3 bg-orange-50 rounded-lg text-sm text-orange-800">
+              <div className="flex justify-between">
+                <span>Grow Bag Cost ({MUSHROOM_PACKAGING_LABELS[selectedPackSize] || selectedPackSize + 'g'}):</span>
+                <span className="font-medium">R{(MUSHROOM_PACKAGING_COSTS[selectedPackSize] || 10).toFixed(2)}</span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Mushroom pricing table */}
+          <Card title={`Mushroom ${currentTier?.name || 'Retail'} Pricing`} subtitle={`${selectedPackSize}g packs · Substrate: Magic Mix @ R${MAGIC_MIX_COST_PER_KG}/kg`}>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Variety</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Cost/kg</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Wholesale</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Retail</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase bg-orange-500">Margin</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Cost/g</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Wholesale/g</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Restaurant/g</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Retail/g</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase bg-orange-500">{selectedPackSize}g Pack</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {MUSHROOM_PRICES.map((mush) => (
-                    <tr key={mush.name} className="hover:bg-orange-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center">
-                          <div className="h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center mr-3">
-                            <Sparkles className="h-4 w-4 text-white" />
+                  {mushroomVarieties.map((variety) => {
+                    const costPerKg = MAGIC_MIX_COST_PER_KG
+                    const costPerG = costPerKg / 1000
+                    const targetMargin = variety.targetMarginPct || 35
+                    const wholesalePerKg = costPerKg / (1 - targetMargin / 100)
+                    const wholesalePerG = wholesalePerKg / 1000
+                    const restaurantPerG = wholesalePerG * 0.9
+                    const retailPerG = wholesalePerG * 1.25
+                    const tierPricePerG = selectedTier === 'wholesale' ? wholesalePerG
+                      : selectedTier === 'restaurant' ? restaurantPerG
+                      : retailPerG
+                    const packPrice = (tierPricePerG * selectedPackSize) + (MUSHROOM_PACKAGING_COSTS[selectedPackSize] || 10)
+                    const bgColor = selectedTier === 'wholesale' ? 'bg-purple-50'
+                      : selectedTier === 'restaurant' ? 'bg-amber-50'
+                      : 'bg-green-50'
+
+                    return (
+                      <tr key={variety.id} className="hover:bg-orange-50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <div
+                              className="h-8 w-8 rounded-full flex items-center justify-center mr-3 text-white text-xs font-bold"
+                              style={{ backgroundColor: variety.colour || '#f97316' }}
+                            >
+                              {variety.displayName.charAt(0)}
+                            </div>
+                            <div className="font-bold text-gray-900">{variety.displayName}</div>
                           </div>
-                          <div className="font-bold text-gray-900">{mush.name}</div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm text-gray-700">
-                        R{SUBSTRATE_COST_PER_KG.toFixed(2)}/kg
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">
-                        R{mush.wholesaleKg}/kg
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-bold text-green-600">
-                        R{mush.retailKg}/kg
-                      </td>
-                      <td className="px-4 py-3 text-right bg-orange-50">
-                        <span className="text-lg font-bold text-orange-700">{mush.margin}%</span>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm text-gray-700">
+                          R{costPerG.toFixed(4)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-bold text-purple-600">
+                          R{wholesalePerG.toFixed(4)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-bold text-amber-600">
+                          R{restaurantPerG.toFixed(4)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-bold text-green-600">
+                          R{retailPerG.toFixed(4)}
+                        </td>
+                        <td className={`px-4 py-3 text-right ${bgColor}`}>
+                          <span className="text-lg font-bold text-orange-700">R{packPrice.toFixed(2)}</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
             <div className="mt-4 p-3 bg-orange-50 rounded-lg text-sm text-orange-800">
               <p className="font-medium">Pricing basis:</p>
-              <p>• Substrate cost: Magic Mix @ R{SUBSTRATE_COST_PER_KG}/kg (low labor mushroom growing)</p>
-              <p>• Wholesale = Cost ÷ (1 − 0.35) = R{SUBSTRATE_COST_PER_KG.toFixed(2)} ÷ 0.65</p>
-              <p>• Retail = Wholesale × 1.25</p>
+              <p>• Substrate cost: Magic Mix @ R{MAGIC_MIX_COST_PER_KG}/kg (hardwood pellets + wheat bran + spawn + grow bag)</p>
+              <p>• Margin varies by variety: {mushroomVarieties.map(v => `${v.displayName.split(' ')[0]} ${v.targetMarginPct}%`).join(', ')}</p>
+              <p>• Restaurant = Wholesale × 0.90 · Retail = Wholesale × 1.25</p>
             </div>
           </Card>
+
+          {/* Mushroom stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <StatCard
+              title="Total Varieties"
+              value={mushroomVarieties.length.toString()}
+              icon={<Sparkles className="h-5 w-5 text-orange-500" />}
+              color="bg-orange-50 border-orange-200"
+            />
+            <StatCard
+              title="Substrate Cost"
+              value={`R${MAGIC_MIX_COST_PER_KG}/kg`}
+              icon={<TrendingUp className="h-5 w-5 text-purple-500" />}
+              color="bg-purple-50 border-purple-200"
+            />
+            <StatCard
+              title={`${selectedPackSize}g Pack (Retail)`}
+              value={`R${((MAGIC_MIX_COST_PER_KG / 1000) * (MAGIC_MIX_COST_PER_KG / (1 - 35 / 100)) * 1.25 * selectedPackSize + (MUSHROOM_PACKAGING_COSTS[selectedPackSize] || 10)).toFixed(2)}`}
+              icon={<Package className="h-5 w-5 text-green-500" />}
+              color="bg-green-50 border-green-200"
+            />
+            <StatCard
+              title="Current Tier"
+              value={currentTier?.name || 'Retail'}
+              icon={getTierIcon(selectedTier)}
+              color="bg-blue-100 text-blue-800 border-blue-200"
+            />
+          </div>
         </>
       )}
     </div>
