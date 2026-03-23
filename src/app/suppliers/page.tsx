@@ -181,7 +181,7 @@ export default function SuppliersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white shadow-lg">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-white/20 rounded-xl">
               <Users className="h-8 w-8" />
