@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Sprout,
   Heart,
+  Sparkles,
 } from 'lucide-react'
 import { useState } from 'react'
 import Image from 'next/image'
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Mixes', href: '/mixes', icon: FlaskConical, color: 'from-amber-500 to-orange-500' },
   { name: 'Seed Costing', href: '/costing', icon: Beaker, color: 'from-cyan-500 to-blue-500' },
   { name: 'Trade Costing', href: '/trade-costing', icon: Factory, color: 'from-indigo-500 to-purple-500' },
+  { name: 'Mushrooms', href: '/mushrooms', icon: Sparkles, color: 'from-orange-400 to-amber-500' },
   { name: 'Admin', href: '/admin', icon: Settings, color: 'from-gray-500 to-gray-600' },
 ]
 

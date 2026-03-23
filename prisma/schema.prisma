@@ -517,3 +517,135 @@ model ExportImportLog {
   @@index([status])
   @@map("export_import_logs")
 }
+
+// ============================================
+// MUSHROOMS — TLF: Mushrooms
+// ============================================
+
+model MushroomVariety {
+  id                   String  @id @default(cuid())
+  slug                 String  @unique // pearl, blue, pink, golden, king
+  displayName          String
+  targetMarginPct      Float   @default(35)
+  zohoInventoryItemId  String?
+  lowStockThresholdKg  Float   @default(2)
+  colour               String  @default("#888888") // hex colour for UI
+  isActive             Boolean @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  batches             MushroomBatch[]
+  mushroomHarvests    MushroomHarvest[]
+
+  @@map("mushroom_varieties")
+}
+
+model MushroomBatch {
+  id               String   @id @default(cuid())
+  batchCode        String   @unique // MUSH-YYYY-NNN format
+  varietyId        String
+  variety          MushroomVariety @relation(fields: [varietyId], references: [id])
+  inoculationDate  DateTime
+  bagCount         Int
+  substrateKg      Int      // computed: bagCount × 2
+  substrateCost    Float    // computed: substrateKg × MAGIC_MIX_COST
+  status           BatchStatus @default(ACTIVE)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  harvests         MushroomHarvest[]
+  costings         MushroomCosting[]
+  priceRecords     MushroomPriceRecord[]
+
+  @@index([varietyId])
+  @@index([status])
+  @@index([inoculationDate])
+  @@map("mushroom_batches")
+}
+
+enum BatchStatus {
+  ACTIVE
+  COMPLETED
+}
+
+model MushroomHarvest {
+  id           String   @id @default(cuid())
+  batchId      String
+  batch        MushroomBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  varietyId    String
+  variety      MushroomVariety @relation(fields: [varietyId], references: [id])
+  flushNumber  Int      // 1 or 2
+  kgHarvested  Float
+  zohoPushed   Boolean  @default(false)
+  zohoStockId  String?
+  loggedAt     DateTime @default(now())
+
+  @@unique([batchId, flushNumber])
+  @@index([batchId])
+  @@map("mushroom_harvests")
+}
+
+model MushroomCosting {
+  id               String @id @default(cuid())
+  batchId          String @unique
+  batch            MushroomBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  substrateCost    Float
+  labourHours      Float   @default(0)
+  labourRate       Float   @default(45)
+  labourCost       Float
+  overheadPct      Float   @default(5)
+  overheadCost     Float
+  totalCost        Float
+  totalKgHarvested Float   @default(0)
+  costPerKg        Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("mushroom_costings")
+}
+
+model MushroomPriceRecord {
+  id                  String   @id @default(cuid())
+  batchId             String
+  batch               MushroomBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  varietyId           String
+  costPerKg           Float
+  targetMarginPct     Float
+  suggestedWholesale   Float
+  suggestedRetail      Float
+  zohoPricePushed     Boolean  @default(false)
+  zohoPushedAt        DateTime?
+  createdAt           DateTime @default(now())
+
+  @@index([batchId])
+  @@map("mushroom_price_records")
+}
+
+model MagicMixPrice {
+  id                    String   @id @default(cuid())
+  hardwoodPelletPrice   Float    @default(8.00)
+  wheatBranPrice        Float    @default(12.00)
+  spawnPrice            Float    @default(110.00)
+  growBagPrice          Float    @default(10.00)
+  waterPricePerLitre    Float    @default(0.01)
+  // Magic Mix constant: R16.95/kg (70% HW + 30% WB + spawn + bag amortised)
+  updatedAt             DateTime @updatedAt
+
+  @@map("magic_mix_prices")
+}
+
+model MushroomZohoConfig {
+  id                  String  @id @default(cuid())
+  zohoClientId        String?
+  zohoClientSecret    String?
+  zohoOrgId           String?
+  zohoRefreshToken    String?
+  zohoAccessToken     String?
+  zohoTokenExpiry     DateTime?
+  websiteSyncEnabled  Boolean @default(false)
+  websiteUrl          String?
+  updatedAt           DateTime @updatedAt
+
+  @@map("mushroom_zoho_config")
+}
