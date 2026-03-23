@@ -265,11 +265,16 @@ export default function MicrogreensPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [page, setPage] = useState(1)
-  const pageSize = 10
+  const [pageSize, setPageSize] = useState(50)
 
   useEffect(() => {
     fetchMicrogreens()
   }, [page])
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize)
+    setPage(1)
+  }
 
   const fetchMicrogreens = async () => {
     try {
@@ -484,6 +489,24 @@ export default function MicrogreensPage() {
           }}
         />
       ) : (
+        <>
+          {/* Page size selector */}
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span>Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium bg-white"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
+              <span>per page — {microgreens.length} total varieties</span>
+            </div>
+          </div>
         <DataTable
           columns={columns}
           data={paginatedData}
@@ -499,6 +522,7 @@ export default function MicrogreensPage() {
             onPageChange: setPage,
           }}
         />
+        </>
       )}
 
       <ConfirmDialog
