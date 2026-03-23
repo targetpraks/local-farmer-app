@@ -77,7 +77,7 @@ function NavSection({
             isActive || open ? 'bg-white/20' : 'bg-gray-100')}>
             <Icon className={cn('h-4 w-4', isActive || open ? 'text-white' : 'text-gray-500')} />
           </div>
-          <span className={collapsed => collapsed ? 'hidden' : ''}>{title}</span>
+          <span>{title}</span>
         </div>
         <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
       </button>

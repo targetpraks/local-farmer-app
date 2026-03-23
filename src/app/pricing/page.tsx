@@ -103,15 +103,42 @@ export default function PricingPage() {
   const [selectedPackSize, setSelectedPackSize] = useState(100)
   const [pricingData, setPricingData] = useState<Record<string, PricingData>>({})
   const [mushroomConfig, setMushroomConfig] = useState<Record<string, number>>({})
+  const [spawnCosts, setSpawnCosts] = useState<Record<string, number>>({})
+  const [mushroomYields, setMushroomYields] = useState<Record<string, { r1: number; r2: number }>>({})
 
-  // Load mushroom production costs from localStorage (same as /mushrooms/production)
+  // Compute true cost-per-gram for a mushroom variety using actual production data
+  const getMushroomCostPerG = (variety: { slug: string; targetMarginPct?: number }) => {
+    const spawnCostPerKg = spawnCosts[variety.slug] ?? 100
+    const bag = mushroomConfig['growBagPrice'] ?? 10
+    const labour = mushroomConfig['labourRate'] ?? 45
+    const electricity = mushroomConfig['electricity'] ?? 2.5
+    const overhead = mushroomConfig['overhead'] ?? 5
+    const substrateKg = mushroomConfig['substrateKg'] ?? 20
+    const substratePricePerKg = mushroomConfig['substratePricePerKg'] ?? 16.95
+    const labourHours = mushroomConfig['labourHours'] ?? 2
+    const yields = mushroomYields[variety.slug] || { r1: 500, r2: 300 }
+    const totalYieldG = yields.r1 + yields.r2
+    const spawnCostPerBag = spawnCostPerKg * 0.1
+    const substrateCostPerBag = substratePricePerKg * substrateKg
+    const labourCostPerBag = labour * labourHours
+    const overheadCostPerBag = overhead * labourHours
+    const growBagCost = bag
+    const totalCostPerBag = spawnCostPerBag + substrateCostPerBag + labourCostPerBag + overheadCostPerBag + growBagCost
+    return {
+      costPerG: totalCostPerBag / totalYieldG,
+      costPerBag: totalCostPerBag,
+    }
+  }
+
+  // Load mushroom production costs AND spawn costs from localStorage
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('lf_production_costs_v1')
-      if (raw) {
-        const saved = JSON.parse(raw)
-        setMushroomConfig(saved)
-      }
+      const prodRaw = localStorage.getItem('lf_production_costs_v1')
+      if (prodRaw) setMushroomConfig(JSON.parse(prodRaw))
+      const spawnRaw = localStorage.getItem('lf_mushroom_spawn_costs')
+      if (spawnRaw) setSpawnCosts(JSON.parse(spawnRaw))
+      const yieldsRaw = localStorage.getItem('lf_mushroom_yields')
+      if (yieldsRaw) setMushroomYields(JSON.parse(yieldsRaw))
     } catch { /* ignore */ }
   }, [])
 
@@ -532,11 +559,9 @@ export default function PricingPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {mushroomVarieties.map((variety) => {
-                    const costPerKg = MAGIC_MIX_COST_PER_KG
-                    const costPerG = costPerKg / 1000
+                    const { costPerG: realCostPerG, costPerBag } = getMushroomCostPerG(variety)
                     const targetMargin = variety.targetMarginPct || 35
-                    const wholesalePerKg = costPerKg / (1 - targetMargin / 100)
-                    const wholesalePerG = wholesalePerKg / 1000
+                    const wholesalePerG = realCostPerG / (1 - targetMargin / 100)
                     const restaurantPerG = wholesalePerG * 0.9
                     const retailPerG = wholesalePerG * 1.25
                     const tierPricePerG = selectedTier === 'wholesale' ? wholesalePerG
@@ -561,7 +586,7 @@ export default function PricingPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right text-sm text-gray-700">
-                          R{costPerG.toFixed(4)}
+                          R{realCostPerG.toFixed(4)}
                         </td>
                         <td className="px-4 py-3 text-right text-sm font-bold text-purple-600">
                           R{wholesalePerG.toFixed(4)}
@@ -598,14 +623,14 @@ export default function PricingPage() {
               color="bg-orange-50 border-orange-200"
             />
             <StatCard
-              title="Substrate Cost"
-              value={`R${MAGIC_MIX_COST_PER_KG}/kg`}
+              title="Avg Cost/g (Real)"
+              value={mushroomVarieties.length > 0 ? `R${(mushroomVarieties.reduce((s, v) => s + getMushroomCostPerG(v).costPerG, 0) / mushroomVarieties.length).toFixed(4)}` : 'R0.0000'}
               icon={<TrendingUp className="h-5 w-5 text-purple-500" />}
               color="bg-purple-50 border-purple-200"
             />
             <StatCard
               title={`${selectedPackSize}g Pack (Retail)`}
-              value={`R${((MAGIC_MIX_COST_PER_KG / 1000) * (MAGIC_MIX_COST_PER_KG / (1 - 35 / 100)) * 1.25 * selectedPackSize + getMushroomPackagingCost(selectedPackSize, 'retail', mushroomConfig)).toFixed(2)}`}
+              value={mushroomVarieties.length > 0 ? `R${((((mushroomVarieties.reduce((s, v) => s + getMushroomCostPerG(v).costPerG, 0) / mushroomVarieties.length) / 0.65) * 1.25) * selectedPackSize + getMushroomPackagingCost(selectedPackSize, 'retail', mushroomConfig)).toFixed(2)}` : 'R0.00'}
               icon={<Package className="h-5 w-5 text-green-500" />}
               color="bg-green-50 border-green-200"
             />

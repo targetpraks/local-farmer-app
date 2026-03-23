@@ -120,7 +120,7 @@ export function MushroomBatchDetail({ batch }: { batch: Batch }) {
                     <input type="number" step="0.1" min="0" value={kg} onChange={e => setKg(e.target.value)}
                       placeholder="kg harvested"
                       className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                    <button onClick={() => logHarvest(n, kg)}
+                    <button onClick={() => logHarvest(n, String(kg))}
                       disabled={!kg || saving === `flush${n}`}
                       className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-40">
                       {saving === `flush${n}` ? '...' : 'Log'}
@@ -181,7 +181,7 @@ export function MushroomBatchDetail({ batch }: { batch: Batch }) {
       )}
 
       {/* Zoho sync */}
-      {batch.status === 'COMPLETED' && batch.variety.zohoInventoryItemId && (
+      {batch.status === 'COMPLETED' && (batch.variety as any).zohoInventoryItemId && (
         <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-6">
           <h2 className="font-bold text-gray-900 mb-1">📡 Zoho Inventory Sync</h2>
           <p className="text-xs text-gray-500 mb-4">Push pricing and stock to Zoho → website</p>

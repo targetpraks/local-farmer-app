@@ -73,19 +73,58 @@ interface MushroomRow {
 export default function SubscriptionsPage() {
   const [activeTab, setActiveTab] = useState<'microgreens'|'mushrooms'>('microgreens')
   const [microgreens, setMicrogreens] = useState<any[]>([])
+  const [mushroomVarieties, setMushroomVarieties] = useState<any[]>([])
+  const [mushroomConfig, setMushroomConfig] = useState<Record<string, number>>({})
+  const [spawnCosts, setSpawnCosts] = useState<Record<string, number>>({})
+  const [mushroomYields, setMushroomYields] = useState<Record<string, { r1: number; r2: number }>>({})
   const [config, setConfig] = useState<ProductionConfig>(defaultConfig)
   const [selectedDuration, setSelectedDuration] = useState(DURATION_DISCOUNTS[0])
   const [selectedPackSize, setSelectedPackSize] = useState(DEFAULT_PACK_SIZE)
   const [selectedTier, setSelectedTier] = useState<'retail'|'restaurant'|'wholesale'>('retail')
   const [isLoading, setIsLoading] = useState(true)
 
+  // Load mushroom production costs and spawn costs from localStorage
   useEffect(() => {
-    // Load microgreens and production config
+    try {
+      const prodRaw = localStorage.getItem('lf_production_costs_v1')
+      if (prodRaw) setMushroomConfig(JSON.parse(prodRaw))
+      const spawnRaw = localStorage.getItem('lf_mushroom_spawn_costs')
+      if (spawnRaw) setSpawnCosts(JSON.parse(spawnRaw))
+      const yieldsRaw = localStorage.getItem('lf_mushroom_yields')
+      if (yieldsRaw) setMushroomYields(JSON.parse(yieldsRaw))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Compute true cost-per-gram for a mushroom variety
+  const getMushroomCostPerG = (variety: { slug: string; targetMarginPct?: number }) => {
+    const spawnCostPerKg = spawnCosts[variety.slug] ?? 100
+    const bag = mushroomConfig['growBagPrice'] ?? 10
+    const labour = mushroomConfig['labourRate'] ?? 45
+    const electricity = mushroomConfig['electricity'] ?? 2.5
+    const overhead = mushroomConfig['overhead'] ?? 5
+    const substrateKg = mushroomConfig['substrateKg'] ?? 20
+    const substratePricePerKg = mushroomConfig['substratePricePerKg'] ?? 16.95
+    const labourHours = mushroomConfig['labourHours'] ?? 2
+    const yields = mushroomYields[variety.slug] || { r1: 500, r2: 300 }
+    const totalYieldG = yields.r1 + yields.r2
+    const spawnCostPerBag = spawnCostPerKg * 0.1
+    const substrateCostPerBag = substratePricePerKg * substrateKg
+    const labourCostPerBag = labour * labourHours
+    const overheadCostPerBag = overhead * labourHours
+    const growBagCost = bag
+    const totalCostPerBag = spawnCostPerBag + substrateCostPerBag + labourCostPerBag + overheadCostPerBag + growBagCost
+    return totalCostPerBag / totalYieldG
+  }
+
+  useEffect(() => {
+    // Load microgreens, mushroom varieties, and production config
     Promise.all([
       fetch('/api/microgreens?limit=100').then(res => res.json()),
       fetch('/api/production-costs').then(res => res.json()),
-    ]).then(([microResult, configResult]) => {
+      fetch('/api/mushrooms/varieties').then(res => res.json()),
+    ]).then(([microResult, configResult, mushroomResult]) => {
       setMicrogreens(microResult.data || [])
+      setMushroomVarieties(mushroomResult.data || [])
       if (configResult.data) {
         setConfig({ ...defaultConfig, ...configResult.data })
       }
@@ -397,42 +436,42 @@ export default function SubscriptionsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {Object.entries(MUSHROOM_BASE_PRICES).map(([slug, basePricePerG]) => {
-                    const displayName = slug.charAt(0).toUpperCase() + slug.slice(1) + ' Oyster'
-                    const colour = MUSHROOM_COLOURS[slug] || '#888888'
-                    const retailPrice = basePricePerG
-                    const restaurantPrice = retailPrice * 0.90
-                    const wholesalePrice = retailPrice * 0.80
+                  {mushroomVarieties.map((v) => {
+                    const basePricePerG = getMushroomCostPerG(v)
+                    const targetMargin = v.targetMarginPct || 35
+                    const wholesalePerG = basePricePerG / (1 - targetMargin / 100)
+                    const restaurantPerG = wholesalePerG * 0.9
+                    const retailPerG = wholesalePerG * 1.25
                     const durationMult = 1 - (selectedDuration.discount / 100)
-                    const tierPrice = selectedTier === 'wholesale' ? wholesalePrice
-                      : selectedTier === 'restaurant' ? restaurantPrice
-                      : retailPrice
-                    const finalPrice = (tierPrice * selectedPackSize * durationMult) + GROW_BAG_COST
+                    const tierPrice = selectedTier === 'wholesale' ? wholesalePerG
+                      : selectedTier === 'restaurant' ? restaurantPerG
+                      : retailPerG
+                    const finalPrice = (tierPrice * selectedPackSize * durationMult) + (mushroomConfig['growBagPrice'] ?? 10)
 
                     return (
-                      <tr key={slug} className="hover:bg-orange-50">
+                      <tr key={v.id || v.slug} className="hover:bg-orange-50">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div
                               className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                              style={{ backgroundColor: colour }}
+                              style={{ backgroundColor: v.colour || '#888888' }}
                             >
-                              {displayName.charAt(0)}
+                              {(v.displayName || v.slug).charAt(0)}
                             </div>
-                            <span className="font-bold text-gray-900">{displayName}</span>
+                            <span className="font-bold text-gray-900">{v.displayName}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right text-sm font-mono text-gray-600">
-                          R{basePricePerG.toFixed(3)}/g
+                          R{basePricePerG.toFixed(4)}/g
                         </td>
                         <td className={`px-4 py-3 text-right text-sm font-bold ${selectedTier === 'retail' ? 'text-green-700 bg-green-50' : 'text-green-600'}`}>
-                          R{retailPrice.toFixed(3)}/g
+                          R{retailPerG.toFixed(4)}/g
                         </td>
                         <td className={`px-4 py-3 text-right text-sm font-bold ${selectedTier === 'restaurant' ? 'text-amber-700 bg-amber-50' : 'text-amber-600'}`}>
-                          R{restaurantPrice.toFixed(3)}/g
+                          R{restaurantPerG.toFixed(4)}/g
                         </td>
                         <td className={`px-4 py-3 text-right text-sm font-bold ${selectedTier === 'wholesale' ? 'text-purple-700 bg-purple-50' : 'text-purple-600'}`}>
-                          R{wholesalePrice.toFixed(3)}/g
+                          R{wholesalePerG.toFixed(4)}/g
                         </td>
                         <td className={`px-4 py-3 text-right text-lg font-bold ${
                           selectedTier === 'retail' ? 'bg-green-50 text-green-700' :

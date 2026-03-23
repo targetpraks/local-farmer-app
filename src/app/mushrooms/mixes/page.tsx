@@ -144,14 +144,11 @@ export default function MushroomMixesPage() {
                       }}
                       className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
                     <span className="text-sm text-gray-400">%</span>
-                    <span className="text-xs text-gray-400">
-                      → {((val || 0) * 0.01 * 2 * (v.be * 0.6 + 0.25)).toFixed(2)} kg/bag est.
-                    </span>
                   </div>
                 )
               })}
             </div>
-            <p className="text-xs mt-1.5 {totalPct(components) === 100 ? 'text-green-600' : 'text-red-500'}">
+            <p className={`text-xs mt-1.5 ${totalPct(components) === 100 ? 'text-green-600' : 'text-red-500'}`}>
               Total: {totalPct(components)}%{' '}
               {totalPct(components) === 100 ? <span className="font-medium">✓</span> : '— must equal 100%'}
             </p>

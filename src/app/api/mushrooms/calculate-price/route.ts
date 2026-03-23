@@ -25,29 +25,40 @@ export async function POST(req: NextRequest) {
   await prisma.mushroomCosting.upsert({
     where: { batchId },
     update: costing,
-    create: { batchId, ...costing },
+    create: {
+      batchId,
+      ...costing,
+      overheadCost: costing.overhead,
+      batch: { connect: { id: batchId } },
+    },
   })
 
   const { wholesale, retail } = calcPrice(costing.costPerKg, batch.variety.targetMarginPct)
 
-  // Upsert price record
-  await prisma.mushroomPriceRecord.upsert({
-    where: { batchId },
-    update: {
-      costPerKg: costing.costPerKg,
-      targetMarginPct: batch.variety.targetMarginPct,
-      suggestedWholesale: wholesale,
-      suggestedRetail: retail,
-    },
-    create: {
-      batchId,
-      varietyId: batch.varietyId,
-      costPerKg: costing.costPerKg,
-      targetMarginPct: batch.variety.targetMarginPct,
-      suggestedWholesale: wholesale,
-      suggestedRetail: retail,
-    },
-  })
+  // Upsert price record — find existing or create new
+  const existing = await prisma.mushroomPriceRecord.findFirst({ where: { batchId } })
+  if (existing) {
+    await prisma.mushroomPriceRecord.update({
+      where: { id: existing.id },
+      data: {
+        costPerKg: costing.costPerKg,
+        targetMarginPct: batch.variety.targetMarginPct,
+        suggestedWholesale: wholesale,
+        suggestedRetail: retail,
+      },
+    })
+  } else {
+    await prisma.mushroomPriceRecord.create({
+      data: {
+        batchId,
+        varietyId: batch.varietyId,
+        costPerKg: costing.costPerKg,
+        targetMarginPct: batch.variety.targetMarginPct,
+        suggestedWholesale: wholesale,
+        suggestedRetail: retail,
+      },
+    })
+  }
 
   return NextResponse.json({ costing, pricing: { wholesale, retail } })
 }

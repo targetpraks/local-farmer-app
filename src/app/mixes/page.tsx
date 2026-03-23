@@ -134,11 +134,12 @@ export default function MixesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {mixes.map((mix) => (
-            <Card
+            <div
               key={mix.id}
               className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => router.push(`/mixes/${mix.id}`)}
             >
+              <Card className="overflow-hidden">
               <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -187,8 +188,8 @@ export default function MixesPage() {
                       <div key={comp.id} className="flex items-center justify-between text-sm">
                         <span className="text-gray-700 truncate flex-1">{comp.microgreen.name}</span>
                         <Badge
-                          variant="outline"
-                          className="text-xs ml-2 shrink-0"
+                          variant="default"
+                          className="text-xs ml-2 shrink-0 bg-gray-100 text-gray-700"
                         >
                           {comp.percentage}%
                         </Badge>
@@ -231,6 +232,7 @@ export default function MixesPage() {
                 </div>
               </div>
             </Card>
+            </div>
           ))}
         </div>
       )}
