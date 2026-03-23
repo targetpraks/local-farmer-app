@@ -12,7 +12,17 @@ interface SpawnRow {
 }
 
 const STORAGE_KEY = 'lf_mushroom_spawn_costs'
+const YIELDS_KEY = 'lf_mushroom_yields'
 const MAGIC_MIX_COST_PER_KG = 16.95
+
+interface Yields {
+  r1: number
+  r2: number
+}
+
+const DEFAULT_YIELDS: Record<string, Yields> = {
+  default: { r1: 500, r2: 300 },
+}
 
 function recalc(spawnCost: number): number {
   const spawnCostPerBag = spawnCost * 0.1
@@ -27,6 +37,7 @@ export function SpawnCostTable({ initialData }: { initialData: SpawnRow[] }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
   const [hydrated, setHydrated] = useState(false)
+  const [yields, setYields] = useState<Record<string, Yields>>({})
 
   useEffect(() => {
     try {
@@ -38,6 +49,17 @@ export function SpawnCostTable({ initialData }: { initialData: SpawnRow[] }) {
           spawnCost: parsed[r.slug] ?? r.spawnCost,
           costPerGram: recalc(parsed[r.slug] ?? r.spawnCost),
         })))
+      }
+    } catch { /* ignore */ }
+    try {
+      const savedYields = localStorage.getItem(YIELDS_KEY)
+      if (savedYields) {
+        setYields(JSON.parse(savedYields))
+      } else {
+        // Initialize with defaults for each variety
+        const def: Record<string, Yields> = {}
+        initialData.forEach(r => { def[r.slug] = { r1: 500, r2: 300 } })
+        setYields(def)
       }
     } catch { /* ignore */ }
     setHydrated(true)
@@ -52,6 +74,13 @@ export function SpawnCostTable({ initialData }: { initialData: SpawnRow[] }) {
     } catch { /* ignore */ }
   }, [rows, hydrated])
 
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      localStorage.setItem(YIELDS_KEY, JSON.stringify(yields))
+    } catch { /* ignore */ }
+  }, [yields, hydrated])
+
   function handleEdit(row: SpawnRow) {
     setEditingId(row.id)
     setEditValue(String(row.spawnCost))
@@ -64,70 +93,112 @@ export function SpawnCostTable({ initialData }: { initialData: SpawnRow[] }) {
     setEditingId(null)
   }
 
+  function handleYieldChange(slug: string, field: 'r1' | 'r2', val: number) {
+    setYields(prev => ({
+      ...prev,
+      [slug]: { ...(prev[slug] || { r1: 500, r2: 300 }), [field]: val },
+    }))
+  }
+
   if (!hydrated) return null
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <table className="w-full">
+      <table className="w-full min-w-[600px]">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
-            <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Variety</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Spawn Cost/kg</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Spawn / Bag</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Impact: Cost/g</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">R1 Yield</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">R2 Yield</th>
-            <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total/g</th>
+            <th className="px-8 py-5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Variety</th>
+            <th className="px-8 py-5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Spawn Cost/kg</th>
+            <th className="px-8 py-5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Spawn / Bag</th>
+            <th className="px-8 py-5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Impact: Cost/g</th>
+            <th className="px-8 py-5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">R1 Yield (g)</th>
+            <th className="px-8 py-5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">R2 Yield (g)</th>
+            <th className="px-8 py-5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total Yield (g)</th>
+            <th className="px-8 py-5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Cost/g at Yield</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {rows.map(row => (
-            <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: row.colour }} />
-                  <span className="font-medium text-gray-900 text-sm">{row.displayName}</span>
-                </div>
-              </td>
-              <td className="px-6 py-4 text-right">
-                {editingId === row.id ? (
-                  <div className="flex items-center justify-end gap-1">
-                    <span className="text-gray-400 text-sm">R</span>
-                    <input
-                      type="number" min={1} step={1}
-                      value={editValue}
-                      onChange={e => setEditValue(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSave(row.id)}
-                      className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm font-medium text-right"
-                    />
-                    <button onClick={() => handleSave(row.id)}
-                      className="bg-green-600 text-white px-2 py-1 rounded-lg text-xs font-bold hover:bg-green-700">
-                      Save
-                    </button>
-                    <button onClick={() => setEditingId(null)}
-                      className="bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-medium hover:bg-gray-300">
-                      ✕
-                    </button>
+          {rows.map(row => {
+            const y = yields[row.slug] || { r1: 500, r2: 300 }
+            const totalYield = y.r1 + y.r2
+            const costPerBag = row.spawnCost * 0.1 + MAGIC_MIX_COST_PER_KG * 2
+            const costPerGAtYield = totalYield > 0 ? costPerBag / totalYield : 0
+
+            return (
+              <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-8 py-5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: row.colour }} />
+                    <span className="font-medium text-gray-900 text-sm">{row.displayName}</span>
                   </div>
-                ) : (
-                  <button onClick={() => handleEdit(row)}
-                    className="group flex items-center justify-end gap-1">
-                    <span className="font-bold text-orange-600 text-sm">R{row.spawnCost}/kg</span>
-                    <span className="text-gray-300 text-xs group-hover:text-orange-400">✎</span>
-                  </button>
-                )}
-              </td>
-              <td className="px-6 py-4 text-right text-sm text-gray-600">
-                R{(row.spawnCost * 0.1).toFixed(2)}
-              </td>
-              <td className="px-6 py-4 text-right text-sm font-medium text-gray-700">
-                R{row.costPerGram.toFixed(4)}/g
-              </td>
-              <td className="px-6 py-4 text-right text-sm text-green-600">500g</td>
-              <td className="px-6 py-4 text-right text-sm text-green-600">300g</td>
-              <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">800g</td>
-            </tr>
-          ))}
+                </td>
+                <td className="px-8 py-5 text-right">
+                  {editingId === row.id ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <span className="text-gray-400 text-sm">R</span>
+                      <input
+                        type="number" min={1} step={1}
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSave(row.id)}
+                        className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm font-medium text-right"
+                      />
+                      <button onClick={() => handleSave(row.id)}
+                        className="bg-green-600 text-white px-2 py-1 rounded-lg text-xs font-bold hover:bg-green-700">
+                        Save
+                      </button>
+                      <button onClick={() => setEditingId(null)}
+                        className="bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-medium hover:bg-gray-300">
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => handleEdit(row)}
+                      className="group flex items-center justify-end gap-1">
+                      <span className="font-bold text-orange-600 text-sm">R{row.spawnCost}/kg</span>
+                      <span className="text-gray-300 text-xs group-hover:text-orange-400">✎</span>
+                    </button>
+                  )}
+                </td>
+                <td className="px-8 py-5 text-right text-sm font-bold text-orange-700">
+                  R{(row.spawnCost * 0.1).toFixed(2)}
+                </td>
+                <td className="px-8 py-5 text-right text-sm font-medium text-gray-700">
+                  R{row.costPerGram.toFixed(4)}/g
+                </td>
+                {/* R1 yield - editable */}
+                <td className="px-8 py-5 text-right">
+                  <input
+                    type="number"
+                    min={0}
+                    step={10}
+                    value={y.r1}
+                    onChange={e => handleYieldChange(row.slug, 'r1', parseFloat(e.target.value) || 0)}
+                    className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-medium text-right text-green-700 bg-green-50"
+                  />
+                </td>
+                {/* R2 yield - editable */}
+                <td className="px-8 py-5 text-right">
+                  <input
+                    type="number"
+                    min={0}
+                    step={10}
+                    value={y.r2}
+                    onChange={e => handleYieldChange(row.slug, 'r2', parseFloat(e.target.value) || 0)}
+                    className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-medium text-right text-green-700 bg-green-50"
+                  />
+                </td>
+                {/* Total yield */}
+                <td className="px-8 py-5 text-right text-sm font-bold text-gray-900">
+                  {totalYield}g
+                </td>
+                {/* Cost/g at yield */}
+                <td className="px-8 py-5 text-right text-sm font-bold text-orange-700">
+                  R{costPerGAtYield.toFixed(4)}/g
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

@@ -64,7 +64,7 @@ export default async function MushroomCostingPage() {
             <span>›</span><span>Spawn Costing</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">🍄 Spawn Costing</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Spawn cost per kg by variety — linked to production and pricing</p>
+          <p className="text-gray-500 text-sm mt-0.5">Spawn cost per bag by variety — linked to production and pricing</p>
         </div>
         <Link href="/mushrooms" className="text-sm text-orange-600 hover:underline font-medium">
           ← Back to Mushrooms
@@ -79,18 +79,18 @@ export default async function MushroomCostingPage() {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Avg Spawn Cost</p>
-          <p className="text-3xl font-bold text-orange-600 mt-1">R{avgSpawnCost.toFixed(0)}/kg</p>
+          <p className="text-3xl font-bold text-orange-600 mt-1">R{(avgSpawnCost * 0.1).toFixed(2)}/bag</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Cheapest</p>
           <p className="text-lg font-bold text-green-600 mt-1">
-            {cheapest ? `${cheapest.displayName} — R${cheapest.spawnCost}/kg` : '—'}
+            {cheapest ? `${cheapest.displayName} — R${(cheapest.spawnCost * 0.1).toFixed(2)}/bag` : '—'}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Most Expensive</p>
           <p className="text-lg font-bold text-orange-700 mt-1">
-            {expensive ? `${expensive.displayName} — R${expensive.spawnCost}/kg` : '—'}
+            {expensive ? `${expensive.displayName} — R${(expensive.spawnCost * 0.1).toFixed(2)}/bag` : '—'}
           </p>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default async function MushroomCostingPage() {
         <ul className="text-xs text-orange-700 space-y-1">
           <li><strong>Spawn cost:</strong> R90–125/kg depending on variety and supplier</li>
           <li><strong>Inoculation rate:</strong> 5–10% spawn to substrate (100g spawn per 2kg bag)</li>
-          <li><strong>Spawn cost per bag:</strong> ~R9–12.50 per bag at typical rates</li>
+          <li><strong>Spawn cost per bag:</strong> R9–12.50 per bag (100g spawn at R90–125/kg)</li>
           <li><strong>Impact:</strong> Spawn adds ~R0.011–0.016/g to final cost-per-gram at typical yields</li>
           <li><strong>Production:</strong> See <Link href="/mushrooms/production" className="underline hover:text-orange-900">Production Costing</Link> for full substrate + labour + overhead breakdown</li>
         </ul>

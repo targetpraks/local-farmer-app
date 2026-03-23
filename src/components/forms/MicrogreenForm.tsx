@@ -45,9 +45,10 @@ export function MicrogreenForm({
   } = useForm<MicrogreenFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      growTime: 7,
-      yieldPerTray: 100,
+      growTime: 10,
+      yieldPerTray: 150,
       seedingDensity: 20,
+      defaultSeedCostPerGram: 3.00,
       ...defaultValues,
     },
   })
