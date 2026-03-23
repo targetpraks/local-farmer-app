@@ -1,5 +1,6 @@
 'use client'
-import { useState, useRouter } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { MAGIC_MIX_COST_PER_KG } from '@/lib/mushrooms/magicMix'
 
