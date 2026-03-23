@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       Object.keys(data).forEach(key => data[key] === undefined && delete data[key])
 
       const microgreen = await prisma.microgreen.upsert({
-        where: { seedCode: row.seedCode },
+        where: { sku: row.seedCode },
         update: data,
         create: {
           ...data,

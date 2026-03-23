@@ -57,7 +57,7 @@ export default function MixDetailPage() {
       setError(null)
       
       const response = await fetch(`/api/mixes/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })

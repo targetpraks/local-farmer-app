@@ -9,7 +9,7 @@ export async function POST() {
       prisma.mix.deleteMany(),
       prisma.microgreen.deleteMany(),
       prisma.productionCostConfig.deleteMany(),
-      prisma.pricingTier.deleteMany(),
+      prisma.customerTier.deleteMany(),
       prisma.subscriptionPlan.deleteMany(),
     ])
 

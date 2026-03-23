@@ -47,7 +47,7 @@ export default function SupplierDetailPage() {
       setError(null)
       
       const response = await fetch(`/api/suppliers/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })

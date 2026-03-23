@@ -92,29 +92,21 @@ export default function MixesPage() {
       header: 'Cost / Gram', 
       sortable: true,
       render: (row: MixWithComponents) => {
-        // Calculate blended cost based on component costs and yields
-        let totalCost = 0
-        let totalYield = 0
+        // Calculate blended cost per gram: Σ(component_costPerGram × percentage/100)
+        let blendedCostPerGram = 0
         
         row.components?.forEach((comp) => {
           const microgreen = comp.microgreen
           if (microgreen) {
-            const seedCost = microgreen.defaultSeedCostPerGram || 0
-            const yieldPerTray = microgreen.yieldPerTray || 1
+            const seedCostPerGram = microgreen.defaultSeedCostPerGram || 0
             const percentage = comp.percentage / 100
-            
-            // Cost for this component = seed cost * percentage
-            totalCost += seedCost * percentage
-            // Weight contribution = yield * percentage
-            totalYield += yieldPerTray * percentage
+            blendedCostPerGram += seedCostPerGram * percentage
           }
         })
         
-        const costPerGram = totalYield > 0 ? totalCost / totalYield : 0
-        
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-semibold bg-amber-100 text-amber-900 border border-amber-200">
-            R{costPerGram.toFixed(2)}/g
+            R{blendedCostPerGram.toFixed(2)}/g
           </span>
         )
       }

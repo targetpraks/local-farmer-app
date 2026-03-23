@@ -11,12 +11,19 @@ import {
   Users,
   Package,
   TrendingUp,
-  Calculator
+  Calculator,
+  Leaf
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
+
+interface MineralItem {
+  id: string
+  name: string
+  costPerTray: number
+}
 
 interface ProductionCostConfig {
   id?: string
@@ -44,6 +51,9 @@ interface ProductionCostConfig {
   wholesalePackagingMedium: number
   wholesalePackagingLarge: number
   wholesaleIdLabelCost: number
+
+  // Mineral / Nutrient costs
+  minerals: MineralItem[]
 }
 
 const defaultConfig: ProductionCostConfig = {
@@ -70,6 +80,14 @@ const defaultConfig: ProductionCostConfig = {
   wholesalePackagingMedium: 2,
   wholesalePackagingLarge: 3,
   wholesaleIdLabelCost: 0.5,
+
+  // Mineral / Nutrient costs
+  minerals: [
+    { id: '1', name: 'Worm Tea', costPerTray: 0 },
+    { id: '2', name: '', costPerTray: 0 },
+    { id: '3', name: '', costPerTray: 0 },
+    { id: '4', name: '', costPerTray: 0 },
+  ],
 }
 
 export default function TradeCostingPage() {
@@ -104,6 +122,15 @@ export default function TradeCostingPage() {
     setConfig(prev => ({ ...prev, [field]: value }))
   }
 
+  const updateMineral = (id: string, field: keyof MineralItem, value: string | number) => {
+    setConfig(prev => ({
+      ...prev,
+      minerals: prev.minerals.map(m =>
+        m.id === id ? { ...m, [field]: value } : m
+      ),
+    }))
+  }
+
   const saveConfig = async () => {
     try {
       setIsSaving(true)
@@ -130,9 +157,10 @@ export default function TradeCostingPage() {
   // Calculate derived values
   const trayAmortizedCost = config.trayCost / config.trayUses
   const soilCost = (config.soilCostPerKg / 1000) * config.soilPerTrayGrams
-  const totalCostPerTray = trayAmortizedCost + config.fabricPaperCost + soilCost + 
-                          config.waterCostPerTray + config.electricityCostPerTray + 
-                          config.laborCostPerTray
+  const totalCostPerTray = trayAmortizedCost + config.fabricPaperCost + soilCost +
+                          config.waterCostPerTray + config.electricityCostPerTray +
+                          config.laborCostPerTray +
+                          config.minerals.reduce((sum, m) => sum + (m.costPerTray || 0), 0)
 
   if (isLoading) {
     return <LoadingSpinner fullScreen />
@@ -326,6 +354,50 @@ export default function TradeCostingPage() {
             </div>
           </Card>
 
+          {/* Mineral / Nutrient Costs */}
+          <Card title="Mineral & Nutrient Costs" subtitle="Additives and nutrients per tray (e.g. worm tea)">
+            <div className="space-y-3">
+              {config.minerals.map((mineral, index) => (
+                <div key={mineral.id} className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      {index === 0 ? 'Name (e.g. Worm Tea)' : `Mineral ${index + 1}`}
+                    </label>
+                    <input
+                      type="text"
+                      value={mineral.name}
+                      onChange={(e) => updateMineral(mineral.id, 'name', e.target.value)}
+                      placeholder={index === 0 ? 'Worm Tea' : 'Mineral name'}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Cost per Tray</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={mineral.costPerTray || ''}
+                        onChange={(e) => updateMineral(mineral.id, 'costPerTray', parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                      <span className="text-sm text-gray-500 font-medium">R</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {config.minerals.some(m => m.costPerTray > 0) && (
+              <div className="mt-3 p-3 bg-teal-50 rounded-lg">
+                <p className="text-sm text-teal-900">
+                  <strong>Total mineral cost per tray:</strong> R{config.minerals.reduce((sum, m) => sum + (m.costPerTray || 0), 0).toFixed(2)}
+                </p>
+              </div>
+            )}
+          </Card>
+
           {/* Retail Packaging */}
           <Card title="Retail Packaging" subtitle="Clam shell and labels for retail packs">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -410,6 +482,9 @@ export default function TradeCostingPage() {
               <CostRow label="Water" value={config.waterCostPerTray} />
               <CostRow label="Electricity" value={config.electricityCostPerTray} />
               <CostRow label="Labor" value={config.laborCostPerTray} />
+              {config.minerals.filter(m => m.costPerTray > 0).map(m => (
+                <CostRow key={m.id} label={m.name || 'Mineral'} value={m.costPerTray} />
+              ))}
               
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <div className="flex justify-between items-center">

@@ -47,7 +47,7 @@ export default function MicrogreenDetailPage() {
       setError(null)
       
       const response = await fetch(`/api/microgreens/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })

@@ -487,6 +487,9 @@ model ProductionCostConfig {
   wholesalePackagingMedium Float @default(2)
   wholesalePackagingLarge Float @default(3)
   wholesaleIdLabelCost   Float @default(0.5)
+
+  // Mineral / Nutrient costs (flexible array of {name, costPerTray})
+  minerals Json @default("[]")
   
   // Timestamps
   createdAt DateTime @default(now())

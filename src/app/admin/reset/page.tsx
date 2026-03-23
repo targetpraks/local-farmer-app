@@ -54,7 +54,7 @@ export default function ResetDataPage() {
             <Button
               onClick={() => reset('production-config')}
               disabled={loading === 'production-config'}
-              variant="warning"
+              variant="secondary"
             >
               {loading === 'production-config' ? 'Resetting...' : <><Database className="h-4 w-4 mr-2" /> Reset Production Config</>}
             </Button>
@@ -99,7 +99,7 @@ export default function ResetDataPage() {
             <Button
               onClick={() => reset('all')}
               disabled={loading === 'all'}
-              variant="destructive"
+              variant="danger"
               className="w-full"
             >
               {loading === 'all' ? 'Resetting...' : <><AlertTriangle className="h-4 w-4 mr-2" /> Reset Everything</>}
