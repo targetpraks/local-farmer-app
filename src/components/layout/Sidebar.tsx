@@ -27,13 +27,13 @@ const MICROGREEN_COSTING_ITEMS = [
 // ── Section: Mushrooms ────────────────────────────────────────────────────────
 
 const MUSHROOMS_ITEMS = [
-  { name: 'All Batches', href: '/mushrooms', icon: Sparkles },
-  { name: 'New Batch', href: '/mushrooms/new', icon: Sparkles },
+  { name: 'All Mushrooms', href: '/mushrooms', icon: Sparkles },
+  { name: 'New Mushroom', href: '/mushrooms/new', icon: Sparkles },
   { name: 'Prices', href: '/mushrooms/prices', icon: Tag },
 ]
 
 const MUSHROOM_COSTING_ITEMS = [
-  { name: 'Batch Costing', href: '/mushrooms/costing', icon: Tag },
+  { name: 'Spawn Costing', href: '/mushrooms/costing', icon: Tag },
   { name: 'Production', href: '/mushrooms/production', icon: Factory },
 ]
 

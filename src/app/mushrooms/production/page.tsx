@@ -13,7 +13,6 @@ interface CostConfig {
   numBags: number
   substrateKg: number
   substratePricePerKg: number
-  spawnPricePerKg: number
   growBagPrice: number
   labourHours: number
 }
@@ -26,7 +25,6 @@ const DEFAULTS: CostConfig = {
   numBags: 10,
   substrateKg: 20,
   substratePricePerKg: 16.95,
-  spawnPricePerKg: 110,
   growBagPrice: 10,
   labourHours: 2,
 }
@@ -41,6 +39,7 @@ function NumberInput({
   prefix = '',
   suffix = '',
   min = 0,
+  max,
   step = 0.01,
   className = '',
 }: {
@@ -49,6 +48,7 @@ function NumberInput({
   prefix?: string
   suffix?: string
   min?: number
+  max?: number
   step?: number
   className?: string
 }) {
@@ -60,6 +60,7 @@ function NumberInput({
         value={value}
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
         min={min}
+        max={max}
         step={step}
         className="w-full text-right bg-transparent outline-none font-medium text-gray-900 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
@@ -102,10 +103,9 @@ export default function MushroomProductionPage() {
 
   // Derived calculations
   const substrateCost = cfg.substrateKg * cfg.substratePricePerKg
-  const spawnCost = cfg.numBags * cfg.spawnPricePerKg
   const growBagCost = cfg.numBags * cfg.growBagPrice
   const labourCost = cfg.labourHours * cfg.labourRate
-  const materialsSubtotal = substrateCost + spawnCost + growBagCost + labourCost
+  const materialsSubtotal = substrateCost + growBagCost + labourCost
   const overheadCost = (cfg.overhead / 100) * materialsSubtotal
   const totalCost = materialsSubtotal + overheadCost
   const afterLoss = cfg.lossRate > 0 ? totalCost / (1 - cfg.lossRate / 100) : totalCost
@@ -128,7 +128,7 @@ export default function MushroomProductionPage() {
           <p className="text-gray-500 text-sm mt-0.5">Facility costs, labour rates, and overhead allocation</p>
         </div>
         <Link href="/mushrooms" className="text-sm text-orange-600 hover:underline font-medium">
-          ← Back to Batches
+          ← Back to Mushrooms
         </Link>
       </div>
 
@@ -258,21 +258,6 @@ export default function MushroomProductionPage() {
             </div>
             <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 font-medium">Spawn</p>
-                <p className="text-xs text-gray-400">varies by variety</p>
-              </div>
-              <NumberInput
-                value={cfg.spawnPricePerKg}
-                onChange={v => set('spawnPricePerKg', v)}
-                prefix="R"
-                suffix="/kg"
-                step={1}
-                min={0}
-                className="w-28"
-              />
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
-              <div>
                 <p className="text-xs text-gray-500 font-medium">Grow Bags</p>
                 <p className="text-xs text-gray-400">each</p>
               </div>
@@ -287,9 +272,6 @@ export default function MushroomProductionPage() {
               />
             </div>
           </div>
-          <p className="text-xs text-amber-600 mt-2">
-            ⚠️ Spawn cost varies by variety — Oyster R90–120/kg, Shiitake R130–160/kg, Reishi R200+/kg
-          </p>
         </div>
 
         <div className="border-t border-gray-200 pt-6">
@@ -303,10 +285,6 @@ export default function MushroomProductionPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Substrate Cost</span>
                 <span className="font-medium">{formatRand(substrateCost)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Spawn ({cfg.numBags} kg × {formatRand(cfg.spawnPricePerKg)}/kg)</span>
-                <span className="font-medium">{formatRand(spawnCost)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Grow bags ({cfg.numBags} × {formatRand(cfg.growBagPrice)})</span>
@@ -399,7 +377,7 @@ export default function MushroomProductionPage() {
       {/* Actions */}
       <div className="flex gap-3">
         <Link href="/mushrooms/costing" className="flex-1 bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-medium text-sm text-center hover:bg-gray-50 transition-colors">
-          View Batch Costings
+          View Spawn Costing
         </Link>
         <Link href="/mushrooms/prices" className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3 rounded-xl font-medium text-sm text-center hover:shadow-lg transition-all">
           View Price List
