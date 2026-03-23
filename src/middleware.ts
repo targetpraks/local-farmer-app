@@ -7,6 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET
 const SKIP_PATHS = [
   '/api/auth',
   '/api/admin/reset',
+  '/api/admin/stats',
   '/api/production-costs',
   '/api/microgreens',
   '/api/mixes',
